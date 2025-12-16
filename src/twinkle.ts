@@ -18,7 +18,7 @@ if (!Morebits.userIsInGroup('autoconfirmed') && !Morebits.userIsInGroup('confirm
 
 Twinkle.userAgent = `Twinkle (${mw.config.get('wgWikiID')})`;
 
-Twinkle.summaryAd = ' ([[Project:TW|TW]])';
+Twinkle.summaryAd = ' ([[WP:TW|TW]])';
 
 Twinkle.changeTags = '';
 
@@ -35,13 +35,13 @@ Twinkle.registeredModules = [Fluff, Diff];
  * https://twinkle.toolforge.org/core-docs/modules/siteconfig.html
  */
 
-SiteConfig.permalinkSpecialPageName = 'Special:PermanentLink';
+SiteConfig.permalinkSpecialPageName = 'พิเศษ:ลิงก์ถาวร';
 
-SiteConfig.botUsernameRegex = /bot\b/i;
+SiteConfig.botUsernameRegex = /(bot|บอต)\b/i;
 
 SiteConfig.flaggedRevsNamespaces = [];
 
-SiteConfig.redirectTagAliases = ['#REDIRECT'];
+SiteConfig.redirectTagAliases = ['#REDIRECT', '#เปลี่ยนทาง'];
 
 // Go!
 init();
