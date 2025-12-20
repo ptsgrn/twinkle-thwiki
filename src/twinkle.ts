@@ -10,7 +10,7 @@ import { DiffCore as Diff } from './core';
 
 // register some globals for debugging, as per twinkle v2
 import './globals';
-import { Block } from './block';
+// import { Block } from './block';
 import { BatchDelete } from './batchdelete';
 import { Unlink } from './unlink';
 import { Protect } from './protect';
