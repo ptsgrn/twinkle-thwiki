@@ -10,6 +10,10 @@ import { DiffCore as Diff } from './core';
 
 // register some globals for debugging, as per twinkle v2
 import './globals';
+import { Block } from './block';
+import { BatchDelete } from './batchdelete';
+import { Unlink } from './unlink';
+import { Protect } from './protect';
 
 // Check if account is experienced enough to use Twinkle
 if (!Morebits.userIsInGroup('autoconfirmed') && !Morebits.userIsInGroup('confirmed')) {
@@ -27,7 +31,7 @@ Twinkle.messageOverrides = messages;
 Twinkle.extraMwMessages = mwMessageList;
 
 // List of module classes enabled
-Twinkle.registeredModules = [Fluff, Diff];
+Twinkle.registeredModules = [Fluff, Diff, BatchDelete, Unlink, Protect];
 
 /**
  * Adjust the following configurations if necessary

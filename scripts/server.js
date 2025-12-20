@@ -12,7 +12,7 @@ server.start().then(() => {
 	console.log('Starting server on http://localhost:5500');
 });
 
-const GADGET_NAME = 'Twinkle';
+const GADGET_NAME = 'TwinkleV3';
 
 // Disable the deployed gadget version when we begin our testing,
 // enable it back again when we stop testing.
