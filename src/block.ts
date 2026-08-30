@@ -9,6 +9,8 @@ export class Block extends BlockCore {
 		'ให้ข้อเสนอแนะ': 'WT:TW',
 	};
 
+	portletName: string = 'Block';
+
 	blockPresetsInfo: Record<string, BlockPresetInfo> = {
 		'anonblock': {
 			expiry: '31 hours',
@@ -23,7 +25,7 @@ export class Block extends BlockCore {
 			forAnonOnly: true,
 			nocreate: true,
 			nonstandard: true,
-			reason: '{{anonblock}} <!-- Likely a school based on behavioral evidence -->',
+			reason: '{{anonblock}} <!-- อาจเป็นสถานศึกษาตามหลักฐานพฤติกรรม -->',
 			templateName: 'anonblock',
 			sig: '~~~~',
 		},
@@ -36,95 +38,32 @@ export class Block extends BlockCore {
 			reason: '{{blocked proxy}}',
 			sig: null,
 		},
-		'CheckUser block': {
+		'บล็อกโดยผู้ตรวจสอบผู้ใช้': {
 			expiry: '1 week',
 			forAnonOnly: true,
 			nocreate: true,
 			nonstandard: true,
-			reason: '{{CheckUser block}}',
+			reason: '{{บล็อกโดยผู้ตรวจสอบผู้ใช้}}',
 			sig: '~~~~',
 			requireGroup: 'checkuser',
 		},
-		'checkuserblock-account': {
+		'บล็อกโดยผู้ตรวจสอบผู้ใช้-บัญชี': {
 			autoblock: true,
 			expiry: 'infinity',
 			forRegisteredOnly: true,
 			nocreate: true,
 			nonstandard: true,
-			reason: '{{checkuserblock-account}}',
+			reason: '{{บล็อกโดยผู้ตรวจสอบผู้ใช้-บัญชี}}',
 			sig: '~~~~',
 			requireGroup: 'checkuser',
 		},
-		'checkuserblock-wide': {
+		'บล็อกโดยผู้ตรวจสอบผู้ใช้-กว้าง': {
 			forAnonOnly: true,
 			nocreate: true,
 			nonstandard: true,
-			reason: '{{checkuserblock-wide}}',
+			reason: '{{บล็อกโดยผู้ตรวจสอบผู้ใช้-กว้าง}}',
 			sig: '~~~~',
 			requireGroup: 'checkuser',
-		},
-		'colocationwebhost': {
-			expiry: '1 year',
-			forAnonOnly: true,
-			nonstandard: true,
-			reason: '{{colocationwebhost}}',
-			sig: null,
-		},
-		'oversightblock': {
-			autoblock: true,
-			expiry: 'infinity',
-			nocreate: true,
-			nonstandard: true,
-			reason: '{{OversightBlock}}',
-			sig: '~~~~',
-			requireGroup: 'oversight',
-		},
-		'school block': {
-			forAnonOnly: true,
-			nocreate: true,
-			nonstandard: true,
-			reason: '{{school block}}',
-			sig: '~~~~',
-		},
-		'spamblacklistblock': {
-			forAnonOnly: true,
-			expiry: '1 month',
-			disabletalk: true,
-			nocreate: true,
-			reason:
-				'{{spamblacklistblock}} <!-- editor only attempts to add blacklisted links, see [[Special:Log/spamblacklist]] -->',
-		},
-		'rangeblock': {
-			reason: '{{rangeblock}}',
-			nocreate: true,
-			nonstandard: true,
-			forAnonOnly: true,
-			forRangeOnly: true,
-			sig: '~~~~',
-		},
-		'tor': {
-			expiry: '1 year',
-			forAnonOnly: true,
-			nonstandard: true,
-			reason: '{{Tor}}',
-			sig: null,
-		},
-		'webhostblock': {
-			expiry: '1 year',
-			forAnonOnly: true,
-			nonstandard: true,
-			reason: '{{webhostblock}}',
-			sig: null,
-		},
-		// uw-prefixed
-		'uw-3block': {
-			autoblock: true,
-			expiry: '24 hours',
-			nocreate: true,
-			pageParam: true,
-			reason: 'Violation of the [[WP:Three-revert rule|three-revert rule]]',
-			summary:
-				'You have been blocked from editing for violation of the [[WP:3RR|three-revert rule]]',
 		},
 		'uw-ablock': {
 			autoblock: true,
@@ -142,15 +81,6 @@ export class Block extends BlockCore {
 			pageParam: true,
 			reason: 'Using Wikipedia for [[WP:Spam|spam]] or [[WP:NOTADVERTISING|advertising]] purposes',
 			summary: 'You have been blocked from editing for [[WP:SOAP|advertising or self-promotion]]',
-		},
-		'uw-aeblock': {
-			autoblock: true,
-			nocreate: true,
-			pageParam: true,
-			reason: '[[WP:Arbitration enforcement|Arbitration enforcement]]',
-			reasonParam: true,
-			summary:
-				'You have been blocked from editing for violating an [[WP:Arbitration|arbitration decision]]',
 		},
 		'uw-bioblock': {
 			autoblock: true,
@@ -188,13 +118,6 @@ export class Block extends BlockCore {
 			summary:
 				'You have been blocked from editing and your user talk page access has been disabled',
 			suppressArticleInSummary: true,
-		},
-		'uw-botblock': {
-			forRegisteredOnly: true,
-			pageParam: true,
-			reason: 'Running a [[WP:BOT|bot script]] without [[WP:BRFA|approval]]',
-			summary:
-				'You have been blocked from editing because it appears you are running a [[WP:BOT|bot script]] without [[WP:BRFA|approval]]',
 		},
 		'uw-botublock': {
 			expiry: 'infinity',
@@ -552,7 +475,7 @@ export class Block extends BlockCore {
 
 	blockGroups: quickFormElementData[] = [
 		{
-			label: 'Common block reasons',
+			label: 'เหตุผลการบล็อกทั่วไป',
 			list: [
 				{ label: 'anonblock', value: 'anonblock' },
 				{ label: 'anonblock - likely a school', value: 'anonblock - school' },
@@ -569,7 +492,7 @@ export class Block extends BlockCore {
 			],
 		},
 		{
-			label: 'Extended reasons',
+			label: 'เหตุผลจำเพาะ',
 			list: [
 				{ label: 'Advertising', value: 'uw-adblock' },
 				{ label: 'Arbitration enforcement', value: 'uw-aeblock' },
@@ -596,7 +519,7 @@ export class Block extends BlockCore {
 			],
 		},
 		{
-			label: 'Username violations',
+			label: 'การละเมิดชื่อผู้ใช้',
 			list: [
 				{ label: 'Bot username, soft block', value: 'uw-botublock' },
 				{ label: 'Bot username, hard block', value: 'uw-botuhblock' },
@@ -634,7 +557,7 @@ export class Block extends BlockCore {
 
 	blockGroupsPartial = [
 		{
-			label: 'Common partial block reasons',
+			label: 'แม่แบบบล็อกบางส่วนทั่วไป',
 			list: [
 				{ label: 'Generic partial block (custom reason)', value: 'uw-pblock', selected: true },
 				{ label: 'Generic partial block (custom reason) - indefinite', value: 'uw-pblockindef' },
@@ -642,7 +565,7 @@ export class Block extends BlockCore {
 			],
 		},
 		{
-			label: 'Extended partial block reasons',
+			label: 'เหตุผลบล็อกบางส่วนจำเพาะ',
 			list: [
 				{ label: 'Arbitration enforcement', value: 'uw-aepblock' },
 				{ label: 'Email harassment', value: 'uw-epblock' },
@@ -657,9 +580,9 @@ export class Block extends BlockCore {
 
 	toggle_see_alsos(e: QuickFormEvent) {
 		let checkbox = e.target;
-		var reason = checkbox.form.reason.value.replace(
-			new RegExp('( <!--|;) ' + 'see also ' + this.seeAlsos.join(' and ') + '( -->)?'),
-			''
+		var reason = checkbox.form?.reason.value.replace(
+			new RegExp('( <!--|;) ' + 'ดูเพิ่มที่ ' + this.seeAlsos.join(' และ ') + '( -->)?'),
+			'',
 		);
 
 		this.seeAlsos = this.seeAlsos.filter((el) => el !== checkbox.value);
@@ -667,14 +590,14 @@ export class Block extends BlockCore {
 		if (checkbox.checked) {
 			this.seeAlsos.push(checkbox.value);
 		}
-		var seeAlsoMessage = this.seeAlsos.join(' and ');
+		var seeAlsoMessage = this.seeAlsos.join(' และ ');
 
 		if (!this.seeAlsos.length) {
 			checkbox.form.reason.value = reason;
 		} else if (reason.indexOf('{{') !== -1) {
-			checkbox.form.reason.value = reason + ' <!-- see also ' + seeAlsoMessage + ' -->';
+			checkbox.form.reason.value = reason + ' <!-- ดูเพิ่มที่ ' + seeAlsoMessage + ' -->';
 		} else {
-			checkbox.form.reason.value = reason + '; see also ' + seeAlsoMessage;
+			checkbox.form.reason.value = reason + '; ดูเพิ่มที่ ' + seeAlsoMessage;
 		}
 	}
 
@@ -715,16 +638,16 @@ export class Block extends BlockCore {
 			// Building the template, however, takes a fair bit of logic
 			if (params.partial) {
 				if (params.pagerestrictions.length || params.namespacerestrictions.length) {
-					text += '|area=' + (params.indefinite ? 'certain ' : 'from certain ');
+					text += '|area=';
 					if (params.pagerestrictions.length) {
 						text +=
-							'pages (' +
+							'บางหน้า (' +
 							mw.language.listToText(
 								params.pagerestrictions.map((p) => {
 									return '[[:' + p + ']]';
-								})
+								}),
 							);
-						text += params.namespacerestrictions.length ? ') and certain ' : ')';
+						text += params.namespacerestrictions.length ? ') และบาง' : ')';
 					}
 					if (params.namespacerestrictions.length) {
 						// 1 => Talk, 2 => User, etc.
@@ -732,7 +655,7 @@ export class Block extends BlockCore {
 							return this.menuFormattedNamespaces[id];
 						});
 						text +=
-							'[[Wikipedia:Namespace|namespaces]] (' + mw.language.listToText(namespaceNames) + ')';
+							'[[วิกิพีเดีย:เนมสเปซ|เนมสเปซ]] (' + mw.language.listToText(namespaceNames) + ')';
 					}
 				} else if (params.area) {
 					text += '|area=' + params.area;
@@ -757,9 +680,8 @@ export class Block extends BlockCore {
 		// build the edit summary
 		var summary = params.messageData.summary as string;
 		if (params.messageData.suppressArticleInSummary !== true && params.article) {
-			summary += ' on [[:' + params.article + ']]';
+			summary += ' ใน [[:' + params.article + ']]';
 		}
-		summary += '.';
 
 		return [text, summary] as [string, string];
 	}

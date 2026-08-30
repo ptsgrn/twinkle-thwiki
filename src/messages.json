@@ -1,5 +1,5 @@
 {
-  "@comment": "This file contains project-specific overrides for twinkle-core messages.",
-  "protect-request-tooltip": "หากคุณต้องการส่งคำขอป้องกันหน้าไปยัง WP:AN/I",
-  "protect-request-sysop-tooltip": "หากคุณต้องการส่งคำของป้องกันหน้าไปยัง WP:AN/I แทนการส่งด้วยตนเอง"
+	"@comment": "This file contains project-specific overrides for twinkle-core messages.",
+	"protect-request-tooltip": "หากคุณต้องการส่งคำขอป้องกันหน้าไปยัง WP:AN/I",
+	"protect-request-sysop-tooltip": "หากคุณต้องการส่งคำของป้องกันหน้าไปยัง WP:AN/I แทนการส่งด้วยตนเอง"
 }

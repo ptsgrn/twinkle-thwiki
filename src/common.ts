@@ -10,7 +10,7 @@ export const hatnoteRegex =
 let findSources: string;
 
 // Used in XFD and PROD
-export function makeFindSourcesDiv(divID) {
+export function makeFindSourcesDiv(divID: string) {
 	if (!$(divID).length) {
 		return;
 	}

@@ -5,7 +5,7 @@ const webpackConfig = require('../webpack.config');
 // See https://webpack.js.org/api/webpack-dev-server/#start
 
 const compiler = Webpack(webpackConfig);
-const devServerOptions = Object.assign({}, webpackConfig.devServer, {open: true});
+const devServerOptions = Object.assign({}, webpackConfig.devServer, { open: false });
 const server = new WebpackDevServer(devServerOptions, compiler);
 
 server.start().then(() => {

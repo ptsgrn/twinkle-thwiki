@@ -27,9 +27,11 @@ export class Protect extends ProtectCore {
 		});
 	}
 
-	existingTagRegex = /\s*(?:<noinclude>)?\s*\{\{\s*(pp-[^{}]*?|protected|(?:t|v|s|p-|usertalk-v|usertalk-s|sb|move)protected(?:2)?|protected template|privacy protection|(กึ่ง)?ล็อก(แม่แบบ|โต้เถียง|ย้าย|สร้างบทความ|สร้าง)?)\s*?\}\}\s*(?:<\/noinclude>)?\s*/gi;
+	existingTagRegex =
+		/\s*(?:<noinclude>)?\s*\{\{\s*(pp-[^{}]*?|protected|(?:t|v|s|p-|usertalk-v|usertalk-s|sb|move)protected(?:2)?|protected template|privacy protection|(กึ่ง)?ล็อก(แม่แบบ|โต้เถียง|ย้าย|สร้างบทความ|สร้าง)?)\s*?\}\}\s*(?:<\/noinclude>)?\s*/gi;
 
-	disableTaggingOnRedirectTemplateRegex = /{{(?:redr|this is a redirect|r(?:edirect)?(?:.?cat.*)?[ _]?sh)/i;
+	disableTaggingOnRedirectTemplateRegex =
+		/{{(?:redr|this is a redirect|r(?:edirect)?(?:.?cat.*)?[ _]?sh)/i;
 
 	insertTagIntoPage(text: string, tag: string): string {
 		return new Morebits.wikitext.page(text).insertAfterTemplates(tag, hatnoteRegex).getText();
@@ -39,7 +41,7 @@ export class Protect extends ProtectCore {
 		'===\\s*(\\[\\[)?\\s*:?\\s*' +
 			Morebits.string.escapeRegExp(Morebits.pageNameNorm) +
 			'\\s*(\\]\\])?\\s*===',
-		'm'
+		'm',
 	);
 
 	getProtectionPresets(): quickFormElementData[] {

@@ -1096,7 +1096,7 @@ export class Warn extends WarnCore {
 								template: name,
 								inputConfig: this.getInputConfig(name),
 							},
-							data
+							data,
 						);
 					}),
 			};
@@ -1109,7 +1109,7 @@ export class Warn extends WarnCore {
 							template: name,
 							inputConfig: this.getInputConfig(name),
 						},
-						data
+						data,
 					);
 				}),
 			};
@@ -1121,7 +1121,7 @@ export class Warn extends WarnCore {
 							template: name,
 							inputConfig: this.getInputConfig(name),
 						},
-						data
+						data,
 					);
 				}),
 			};
@@ -1137,7 +1137,7 @@ export class Warn extends WarnCore {
 						'to group',
 						level,
 						'subgroup',
-						subgroupName
+						subgroupName,
 					);
 					groups[level].list[subgroupName].push(
 						$.extend(
@@ -1145,8 +1145,8 @@ export class Warn extends WarnCore {
 								template: fullTemplateName,
 								inputConfig: this.getInputConfig(fullTemplateName),
 							},
-							templateData
-						)
+							templateData,
+						),
 					);
 				}
 			}
@@ -1245,13 +1245,13 @@ export class Warn extends WarnCore {
 				return $(
 					"<div style='color: red;' id='tw-warn-red-notice'>{{uw-username}} <b>ไม่ควร</b>ใช้สำหรับการละเมิดนโยบายชื่อผู้ใช้อย่างชัดเจน " +
 						'การละเมิดอย่างชัดเจนควรรายงานโดยตรงไปยัง WP:AN/I (ผ่านแท็บ ARV ของ Twinkle) ' +
-						'{{uw-username}} ควรใช้เฉพาะในกรณีขอบเขตเพื่อมีส่วนร่วมในการอภิปรายกับผู้ใช้เท่านั้น</div>'
+						'{{uw-username}} ควรใช้เฉพาะในกรณีขอบเขตเพื่อมีส่วนร่วมในการอภิปรายกับผู้ใช้เท่านั้น</div>',
 				);
 			case 'uw-coi-username':
 				return $(
 					"<div style='color: red;' id='tw-warn-red-notice'>{{uw-coi-username}} <b>ไม่ควร</b>ใช้สำหรับการละเมิดนโยบายชื่อผู้ใช้อย่างชัดเจน " +
 						'การละเมิดอย่างชัดเจนควรรายงานโดยตรงไปยัง WP:AN/I (ผ่านแท็บ ARV ของ Twinkle) ' +
-						'{{uw-coi-username}} ควรใช้เฉพาะในกรณีขอบเขตเพื่อมีส่วนร่วมในการอภิปรายกับผู้ใช้เท่านั้น</div>'
+						'{{uw-coi-username}} ควรใช้เฉพาะในกรณีขอบเขตเพื่อมีส่วนร่วมในการอภิปรายกับผู้ใช้เท่านั้น</div>',
 				);
 			default:
 				return $();

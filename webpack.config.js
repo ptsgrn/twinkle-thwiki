@@ -37,14 +37,21 @@ module.exports = {
 	},
 
 	devServer: {
+		client: {
+			overlay: {
+				// The dev-server client runs inside Wikipedia and otherwise catches
+				// opaque cross-origin errors from unrelated page scripts.
+				runtimeErrors: false,
+			},
+		},
 		setupMiddlewares: function (middlewares, server) {
 			server.app.get('/core/*', function (req, response) {
 				let path = req.url.slice('/core'.length);
 				let ctype = req.url.endsWith('.js')
 					? 'text/javascript'
 					: req.url.endsWith('.css')
-					? 'text/css'
-					: 'text/plain';
+						? 'text/css'
+						: 'text/plain';
 				response.writeHead(200, { 'Content-Type': `${ctype}; charset=utf-8` });
 				response.end(readFile(corePath + path), 'utf-8');
 			});
@@ -61,7 +68,7 @@ module.exports = {
 		static: path.join(__dirname, 'build'),
 		port: 5500,
 		host: 'localhost',
-		allowedHosts: 'all'
+		allowedHosts: 'all',
 	},
 };
 

@@ -3,10 +3,7 @@
 	"compilerOptions": {
 		"target": "es6",
 		"module": "es2020",
-		"lib": [
-			"dom",
-			"es6",
-		],
+		"lib": ["dom", "es6"],
 		"outDir": "./build",
 		"sourceMap": true,
 		"moduleResolution": "node",

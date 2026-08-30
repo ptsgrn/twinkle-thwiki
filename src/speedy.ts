@@ -93,7 +93,7 @@ export abstract class Speedy extends SpeedyCore {
 
 		let form = new Morebits.quickForm(
 			(e) => this.evaluate(e),
-			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null
+			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null,
 		);
 		this.form = form;
 
@@ -303,7 +303,7 @@ export abstract class Speedy extends SpeedyCore {
 				let link = Morebits.htmlNode('a', '(logs)');
 				link.setAttribute(
 					'href',
-					mw.util.getUrl('Special:Log', { page: mw.config.get('wgPageName') })
+					mw.util.getUrl('Special:Log', { page: mw.config.get('wgPageName') }),
 				);
 				link.setAttribute('target', '_blank');
 
@@ -514,7 +514,7 @@ export abstract class Speedy extends SpeedyCore {
 
 		tm.execute().then(() => {
 			Morebits.status.actionCompleted(
-				this.mode.isSysop ? 'การลบเสร็จสมบูรณ์' : 'การติดป้ายเสร็จสมบูรณ์'
+				this.mode.isSysop ? 'การลบเสร็จสมบูรณ์' : 'การติดป้ายเสร็จสมบูรณ์',
 			);
 			setTimeout(() => {
 				window.location.href = mw.util.getUrl(Morebits.pageNameNorm);
@@ -724,7 +724,7 @@ export abstract class Speedy extends SpeedyCore {
 				!confirm(
 					'The page already has the CSD-related template {{' +
 						tag[1] +
-						'}} on it.  Do you want to add another CSD template?'
+						'}} on it.  Do you want to add another CSD template?',
 				)
 			) {
 				return $.Deferred().reject();
@@ -733,14 +733,14 @@ export abstract class Speedy extends SpeedyCore {
 			// check for existing XFD tags
 			let xfd =
 				/\{\{((?:article for deletion|proposed deletion|prod blp|template for discussion)\/dated|[cfm]fd\b)/i.exec(
-					text
+					text,
 				) || /#invoke:(RfD)/.exec(text);
 			if (
 				xfd &&
 				!confirm(
 					'The deletion-related template {{' +
 						xfd[1] +
-						'}} was found on the page. Do you still want to add a CSD template?'
+						'}} was found on the page. Do you still want to add a CSD template?',
 				)
 			) {
 				return $.Deferred().reject();
@@ -767,7 +767,7 @@ export abstract class Speedy extends SpeedyCore {
 		if (
 			!pageobj.canEdit() ||
 			['wikitext', 'Scribunto', 'javascript', 'css', 'sanitized-css'].indexOf(
-				pageobj.getContentModel()
+				pageobj.getContentModel(),
 			) === -1
 		) {
 			// Attempt to place on talk page
@@ -785,7 +785,7 @@ export abstract class Speedy extends SpeedyCore {
 			let talk_page = new Page(talkName, 'Automatically placing tag on talk page');
 			talk_page.setNewSectionTitle(pageobj.getPageName() + ' nominated for CSD, request deletion');
 			talk_page.setNewSectionText(
-				code + '\n\nI was unable to tag ' + pageobj.getPageName() + ' so please delete it. ~~~~'
+				code + '\n\nI was unable to tag ' + pageobj.getPageName() + ' so please delete it. ~~~~',
 			);
 			talk_page.setCreateOption('recreate');
 			talk_page.setFollowRedirect(true);
@@ -800,7 +800,7 @@ export abstract class Speedy extends SpeedyCore {
 			// remove "move to Commons" tag - deletion-tagged files cannot be moved to Commons
 			text = text.replace(
 				/\{\{(mtc|(copy |move )?to ?commons|move to wikimedia commons|copy to wikimedia commons)[^}]*\}\}/gi,
-				''
+				'',
 			);
 		}
 
@@ -878,7 +878,7 @@ export abstract class Speedy extends SpeedyCore {
 		} else if (initialContrib === mw.config.get('wgUserName')) {
 			Morebits.status.warn(
 				'Note',
-				'You (' + initialContrib + ') created this page; skipping user notification'
+				'You (' + initialContrib + ') created this page; skipping user notification',
 			);
 			initialContrib = null;
 
@@ -889,7 +889,7 @@ export abstract class Speedy extends SpeedyCore {
 		) {
 			Morebits.status.warn(
 				'Note',
-				'Notifying initial contributor: this user created their own user talk page; skipping notification'
+				'Notifying initial contributor: this user created their own user talk page; skipping notification',
 			);
 			initialContrib = null;
 
@@ -900,7 +900,7 @@ export abstract class Speedy extends SpeedyCore {
 		) {
 			Morebits.status.warn(
 				'Note',
-				'Notifying initial contributor: page created procedurally by bot; skipping notification'
+				'Notifying initial contributor: page created procedurally by bot; skipping notification',
 			);
 			initialContrib = null;
 
@@ -909,12 +909,12 @@ export abstract class Speedy extends SpeedyCore {
 			this.hasCSD &&
 			params.warnUser &&
 			!confirm(
-				'The page is has a deletion-related tag, and thus the creator has likely been notified.  Do you want to notify them for this deletion as well?'
+				'The page is has a deletion-related tag, and thus the creator has likely been notified.  Do you want to notify them for this deletion as well?',
 			)
 		) {
 			Morebits.status.info(
 				'Notifying initial contributor',
-				'canceled by user; skipping notification.'
+				'canceled by user; skipping notification.',
 			);
 			initialContrib = null;
 		}
@@ -926,7 +926,7 @@ export abstract class Speedy extends SpeedyCore {
 
 		let usertalkpage = new Page(
 			'User talk:' + initialContrib,
-			'Notifying initial contributor (' + initialContrib + ')'
+			'Notifying initial contributor (' + initialContrib + ')',
 		);
 
 		let editsummary = 'Notification: speedy deletion' + (params.warnUser ? '' : ' nomination');
@@ -960,7 +960,7 @@ export abstract class Speedy extends SpeedyCore {
 		api.setStatusElement(statusIndicator);
 		return api.post().then((apiobj) => {
 			let reason = decodeURIComponent(
-				$(apiobj.getResponse().parse.text).find('#delete-reason').text()
+				$(apiobj.getResponse().parse.text).find('#delete-reason').text(),
 			).replace(/\+/g, ' ');
 			if (!reason) {
 				statusIndicator.warn('Unable to generate summary from deletion template');
@@ -976,7 +976,7 @@ export abstract class Speedy extends SpeedyCore {
 		if (!params.normalizeds.length && params.normalizeds[0] === 'db') {
 			params.deleteReason = prompt(
 				'Enter the deletion summary to use, which will be entered into the deletion log:',
-				''
+				'',
 			);
 			return $.Deferred().resolve();
 		} else {
@@ -985,7 +985,7 @@ export abstract class Speedy extends SpeedyCore {
 				if (params.promptForSummary) {
 					reason = prompt(
 						'Enter the deletion summary to use, or press OK to accept the automatically generated one.',
-						reason
+						reason,
 					);
 				}
 				params.deleteReason = reason;
@@ -1004,7 +1004,7 @@ export abstract class Speedy extends SpeedyCore {
 		} else if (!params.deleteReason || !params.deleteReason.trim()) {
 			Morebits.status.error(
 				'Asking for reason',
-				"you didn't give one.  I don't know... what with admins and their apathetic antics... I give up..."
+				"you didn't give one.  I don't know... what with admins and their apathetic antics... I give up...",
 			);
 			return $.Deferred().reject();
 		}
@@ -1022,10 +1022,10 @@ export abstract class Speedy extends SpeedyCore {
 		if (params.deleteTalkPage && document.getElementById('ca-talk').className !== 'new') {
 			let talkpage = new Page(
 				new mw.Title(Morebits.pageNameNorm).getTalkPage().toText(),
-				'Deleting talk page'
+				'Deleting talk page',
 			);
 			talkpage.setEditSummary(
-				'[[WP:CSD#G8|G8]]: Talk page of deleted page "' + Morebits.pageNameNorm + '"'
+				'[[WP:CSD#G8|G8]]: Talk page of deleted page "' + Morebits.pageNameNorm + '"',
 			);
 			talkpage.setChangeTags(Twinkle.changeTags);
 			return talkpage.deletePage().then(() => {
@@ -1080,7 +1080,7 @@ export abstract class Speedy extends SpeedyCore {
 					let title = value.title;
 					let page = new Page(title, 'Deleting redirect "' + title + '"');
 					page.setEditSummary(
-						'[[WP:CSD#G8|G8]]: Redirect to deleted page "' + Morebits.pageNameNorm + '"'
+						'[[WP:CSD#G8|G8]]: Redirect to deleted page "' + Morebits.pageNameNorm + '"',
 					);
 					page.setChangeTags(Twinkle.changeTags);
 					page.deletePage().then(onsuccess);
@@ -1104,7 +1104,7 @@ export abstract class Speedy extends SpeedyCore {
 				Twinkle.unlink.makeWindow(
 					isFile
 						? 'Removing usages of and/or links to deleted file ' + Morebits.pageNameNorm
-						: 'Removing links to deleted page ' + Morebits.pageNameNorm
+						: 'Removing links to deleted page ' + Morebits.pageNameNorm,
 				);
 			},
 		});
@@ -1145,8 +1145,8 @@ export abstract class Speedy extends SpeedyCore {
 		let fileLogLink =
 			mw.config.get('wgNamespaceNumber') === 6
 				? ' ([{{fullurl:Special:Log|page=' +
-				  mw.util.wikiUrlencode(mw.config.get('wgPageName')) +
-				  '}} log])'
+					mw.util.wikiUrlencode(mw.config.get('wgPageName')) +
+					'}} log])'
 				: '';
 
 		let editsummary = 'Logging speedy deletion nomination';

@@ -15,14 +15,20 @@
  *
  */
 
-mw.loader.using([
-	'mediawiki.api', 'mediawiki.Title', 'mediawiki.user', 'mediawiki.util',
-	'mediawiki.storage', 'mediawiki.libs.pluralruleparser'
-]).then(function() {
-	mw.loader.getScript('http://localhost:5500/core/morebits/morebits.js').then(function () {
-		mw.loader.getScript('http://localhost:5500/twinkle.js');
+mw.loader
+	.using([
+		'mediawiki.api',
+		'mediawiki.Title',
+		'mediawiki.user',
+		'mediawiki.util',
+		'mediawiki.storage',
+		'mediawiki.libs.pluralruleparser',
+	])
+	.then(function () {
+		mw.loader.getScript('http://localhost:5500/core/morebits/morebits.js').then(function () {
+			mw.loader.getScript('http://localhost:5500/twinkle.js');
+		});
 	});
-});
 
 // Lazy load
 mw.loader.load('jquery.ui');
