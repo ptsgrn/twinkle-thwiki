@@ -1,1 +1,0 @@
-This directory contains script files used for **developing** twinkle-core.
