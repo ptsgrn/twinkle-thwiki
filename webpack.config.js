@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const args = require('minimist')(process.argv.slice(2));
 
-const corePath = args.core || './node_modules/twinkle-core';
+const corePath = args.core || './twinkle-core';
 
 module.exports = {
 	mode: 'development',

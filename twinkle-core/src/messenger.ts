@@ -99,16 +99,16 @@ export function addMessages(messages: Messages) {
  */
 // type of msg must be "string", however switching it to "keyof typeof messages"
 // is convenient during development for IDE tooling
-export function msg(msg: string, ...parameters: (string | number | string[] | Date)[]) {
+export function msg(message: string, ...parameters: (string | number | string[] | Date)[]) {
 	if (!banana) {
 		// this will come up when msg() is accidentally used at the top level of code
 		// when the messages wouldn't have loaded
 		throw new Error("Can't emit messages before initMessaging() has run!");
 	}
 	if (qqxMode) {
-		return '(' + msg + ')';
+		return '(' + message + (parameters.length ? ': ' + parameters.join(', ') : '') + ')';
 	}
-	return banana.i18n(msg, ...parameters);
+	return banana.i18n(message, ...parameters);
 }
 
 // Populate default English messages, final fallback
@@ -126,14 +126,12 @@ export function initMessaging() {
 		banana.registerParserPlugin(name, plugin);
 	});
 
-	// Set Morebits i18n
-	Morebits.i18n.setParser({ get: msg });
-
 	// QQX is a dummy "language" for documenting messages
 	// No need to load anything when in qqxMode
 	qqxMode = Twinkle.language === 'qqx';
 
 	if (qqxMode) {
+		Morebits.i18n.setParser({ get: msg });
 		return Promise.resolve();
 	}
 
@@ -145,11 +143,13 @@ export function initMessaging() {
 		loadMediaWikiMessages(mwMessageList, Twinkle.language),
 		loadTwinkleCoreMessages(Twinkle.language),
 	])
-		.catch((e) => {
+		.catch(() => {
 			mw.notify('Failed to load messages needed for Twinkle', { type: 'error' });
 		})
 		.finally(() => {
 			addMessages(Twinkle.messageOverrides);
+			// Refresh Morebits.date locale data after all asynchronous messages have loaded.
+			Morebits.i18n.setParser({ get: msg });
 		});
 }
 
@@ -175,7 +175,7 @@ function loadMediaWikiMessages(msgList: string[], language: string): Promise<voi
 				})
 				.then((msgsFromApi) => {
 					addMessages(msgsFromApi);
-				})
+				}),
 		);
 	}
 	// @ts-ignore
@@ -204,7 +204,7 @@ export function loadTwinkleCoreMessages(language: string) {
 	return $.get(
 		'https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/gadgets/TwinkleCore/+/i18n/build-i18n/' +
 			language +
-			'.json?format=text'
+			'.json?format=text',
 	).then(
 		(base64text) => {
 			// Adapted from https://phabricator.wikimedia.org/diffusion/WGPI/browse/master/proveit.js
@@ -214,8 +214,8 @@ export function loadTwinkleCoreMessages(language: string) {
 						.atob(base64text)
 						.split('')
 						.map((char) => '%' + ('00' + char.charCodeAt(0).toString(16)).slice(-2))
-						.join('')
-				)
+						.join(''),
+				),
 			);
 			initBanana(json);
 			mw.requestIdleCallback(() => {
@@ -228,7 +228,7 @@ export function loadTwinkleCoreMessages(language: string) {
 		// Gerrit raises a CORS error due to some reason.
 		(err) => {
 			mw.log.warn('[twinkle]: no messages loaded from gerrit.', err);
-		}
+		},
 	);
 }
 

@@ -125,7 +125,7 @@ export abstract class BlockCore extends TwinkleModule {
 		var form = new Morebits.quickForm((e) => this.evaluate(e));
 		var actionfield = form.append({
 			type: 'field',
-			label: 'Type of action',
+			label: 'การดำเนินการ',
 		});
 		actionfield.append({
 			type: 'checkbox',
@@ -239,7 +239,7 @@ export abstract class BlockCore extends TwinkleModule {
 	isRegistered: boolean;
 	userIsBot: boolean;
 	hasBlockLog: boolean;
-	lastBlockLogEntry: LogEvent;
+	lastBlockLogEntry: LogEvent | null;
 	lastBlockLogId: number | false;
 
 	fetchedData = {};
@@ -278,7 +278,7 @@ export abstract class BlockCore extends TwinkleModule {
 		this.hasBlockLog = userobj.hasBlockLog();
 		this.lastBlockLogEntry = userobj.getLastBlockLogEntry();
 		// Used later to check if block status changed while filling out the form
-		this.lastBlockLogId = this.hasBlockLog ? this.lastBlockLogEntry.logid : false;
+		this.lastBlockLogId = this.lastBlockLogEntry?.logid ?? false;
 	}
 
 	/**
@@ -1333,14 +1333,14 @@ export abstract class BlockCore extends TwinkleModule {
 				}
 
 				var blockInfo = user.getBlockInfo();
-				var lastLogEntry = user.getLastBlockLogEntry();
-				var logid = lastLogEntry?.logid;
+				var lastLogEntry = user.getLastBlockLogEntry() as LogEvent | null;
+				var logid = lastLogEntry?.logid ?? false;
 
 				if (logid !== this.lastBlockLogId || !!blockInfo !== !!this.currentBlockInfo) {
 					let message = msg('block-conflict', user.getUserName());
-					if (lastLogEntry.action === 'block' || lastLogEntry.action === 'reblock') {
+					if (lastLogEntry?.action === 'block' || lastLogEntry?.action === 'reblock') {
 						message += msg('block-conflict-block', lastLogEntry.user, lastLogEntry.comment, lastLogEntry.params.expiry);
-					} else if (lastLogEntry.action === 'unblock') {
+					} else if (lastLogEntry?.action === 'unblock') {
 						message += msg(
 							'block-conflict-unblock',
 							lastLogEntry.user,

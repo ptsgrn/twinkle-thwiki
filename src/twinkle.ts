@@ -47,5 +47,29 @@ SiteConfig.flaggedRevsNamespaces = [];
 
 SiteConfig.redirectTagAliases = ['#REDIRECT', '#เปลี่ยนทาง'];
 
+SiteConfig.signatureTimestampFormat = function (sigTimestamp) {
+	const monthNames =
+		'มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม'.split(
+			' ',
+		);
+	const match = sigTimestamp.match(/^(\d{2}):(\d{2}), (\d{1,2}) (\S+) (\d{4}) \(\+07\)$/);
+	if (!match) {
+		return null;
+	}
+	const [, hour, minute, day, monthName, year] = match;
+	const month = monthNames.indexOf(monthName);
+	if (month === -1) {
+		return null;
+	}
+	const date = new Date(Date.UTC(+year - 543, month, +day, +hour - 7, +minute));
+	return [
+		date.getUTCFullYear(),
+		date.getUTCMonth(),
+		date.getUTCDate(),
+		date.getUTCHours(),
+		date.getUTCMinutes(),
+	];
+};
+
 // Go!
 init();

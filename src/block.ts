@@ -1,17 +1,19 @@
-import { BlockCore, BlockPresetInfo } from './core';
+import { BlockCore, BlockPresetInfo, msg } from './core';
 
 export class Block extends BlockCore {
 	footerlinks = {
 		'แม่แบบบล็อกผู้ใช้': 'Template:Uw-block/doc/Block_templates',
 		'นโยบายการบล็อก': 'WP:BLOCK',
 		'การตั้งค่าการบล็อก': 'WP:TW/PREF#block',
-		'ความช่วยเหลือ Twinkle': 'WP:TW/DOC#block',
+		'วิธีใช้ Twinkle': 'WP:TW/DOC#block',
 		'ให้ข้อเสนอแนะ': 'WT:TW',
 	};
 
-	portletName: string = 'Block';
+	portletId = 'twinkle-block';
+	portletName = 'บล็อกผู้ใช้';
+	portletTooltip = 'บล็อกผู้ใช้ที่เกี่ยวกับหน้านี้';
 
-	blockPresetsInfo: Record<string, BlockPresetInfo> = {
+	blockPresetsInfo = {
 		'anonblock': {
 			expiry: '31 hours',
 			forAnonOnly: true,
@@ -29,13 +31,13 @@ export class Block extends BlockCore {
 			templateName: 'anonblock',
 			sig: '~~~~',
 		},
-		'blocked proxy': {
+		'บล็อกพร็อกซี': {
 			expiry: '1 year',
 			forAnonOnly: true,
 			nocreate: true,
 			nonstandard: true,
 			hardblock: true,
-			reason: '{{blocked proxy}}',
+			reason: '{{บล็อกพร็อกซี}}',
 			sig: null,
 		},
 		'บล็อกโดยผู้ตรวจสอบผู้ใช้': {
@@ -72,15 +74,15 @@ export class Block extends BlockCore {
 			nocreate: true,
 			pageParam: true,
 			reasonParam: true,
-			summary: 'Your IP address has been blocked from editing',
+			summary: 'ที่อยู่ไอพีของคุณถูกบล็อกจากการแก้ไข',
 			suppressArticleInSummary: true,
 		},
 		'uw-adblock': {
 			autoblock: true,
 			nocreate: true,
 			pageParam: true,
-			reason: 'Using Wikipedia for [[WP:Spam|spam]] or [[WP:NOTADVERTISING|advertising]] purposes',
-			summary: 'You have been blocked from editing for [[WP:SOAP|advertising or self-promotion]]',
+			reason: 'ใช้วิกิพีเดียเพื่อการ[[WP:SPAM|สแปม]]หรือ[[WP:ADVERT|โฆษณา]]',
+			summary: 'คุณถูกบล็อกจากการแก้ไขเพื่อ[[WP:SOAP|โฆษณาหรือการโปรโมตตัวเอง]]',
 		},
 		'uw-bioblock': {
 			autoblock: true,
@@ -98,7 +100,7 @@ export class Block extends BlockCore {
 			nocreate: true,
 			pageParam: true,
 			reasonParam: true,
-			summary: 'You have been blocked from editing',
+			summary: 'คุณถูกบล็อกจากการแก้ไข',
 			suppressArticleInSummary: true,
 		},
 		'uw-blockindef': {
@@ -108,15 +110,14 @@ export class Block extends BlockCore {
 			nocreate: true,
 			pageParam: true,
 			reasonParam: true,
-			summary: 'You have been indefinitely blocked from editing',
+			summary: 'คุณถูกบล็อกจากการแก้ไขอย่างถาวร',
 			suppressArticleInSummary: true,
 		},
 		'uw-blocknotalk': {
 			disabletalk: true,
 			pageParam: true,
 			reasonParam: true,
-			summary:
-				'You have been blocked from editing and your user talk page access has been disabled',
+			summary: 'คุณถูกบล็อกจากการแก้ไขและสิทธิ์การเข้าถึงหน้าพูดคุยของคุณถูกปิดใช้งาน',
 			suppressArticleInSummary: true,
 		},
 		'uw-botublock': {
@@ -124,7 +125,7 @@ export class Block extends BlockCore {
 			forRegisteredOnly: true,
 			reason: '{{uw-botublock}} <!-- Username implies a bot, soft block -->',
 			summary:
-				'You have been indefinitely blocked from editing because your [[WP:U|username]] indicates this is a [[WP:BOT|bot]] account, which is currently not approved',
+				'คุณถูกบล็อกจากการแก้ไขอย่างถาวรเนื่องจาก[[WP:U|ชื่อผู้ใช้]]ของคุณบ่งชี้ว่าเป็นบัญชี[[WP:BOT|บอต]]ซึ่งยังไม่ได้รับการอนุมัติ',
 		},
 		'uw-botuhblock': {
 			autoblock: true,
@@ -378,8 +379,8 @@ export class Block extends BlockCore {
 			expiry: '31 hours',
 			nocreate: true,
 			pageParam: true,
-			reason: '[[WP:Vandalism|Vandalism]]',
-			summary: 'You have been blocked from editing to prevent further [[WP:VAND|vandalism]]',
+			reason: '[[WP:การก่อกวน|ก่อกวน]]',
+			summary: 'คุณถูกบล็อกจากการแก้ไขเพื่อป้องกัน[[WP:VAND|การก่อกวน]]เพิ่มเติม',
 		},
 		'uw-voablock': {
 			autoblock: true,
@@ -471,57 +472,61 @@ export class Block extends BlockCore {
 			summary:
 				'You have been indefinitely [[WP:PB|partially blocked]] from certain areas of the encyclopedia',
 		},
-	};
+	} as const;
 
-	blockGroups: quickFormElementData[] = [
+	blockGroups: (quickFormElementData & {
+		list: {
+			value: keyof Block['blockPresetsInfo'];
+		}[];
+	})[] = [
 		{
 			label: 'เหตุผลการบล็อกทั่วไป',
 			list: [
-				{ label: 'anonblock', value: 'anonblock' },
-				{ label: 'anonblock - likely a school', value: 'anonblock - school' },
-				{ label: 'school block', value: 'school block' },
-				{ label: 'Generic block (custom reason)', value: 'uw-block' }, // ends up being default for registered users
-				{ label: 'Generic block (custom reason) - IP', value: 'uw-ablock', selected: true }, // set only when blocking IP
-				{ label: 'Generic block (custom reason) - indefinite', value: 'uw-blockindef' },
-				{ label: 'Disruptive editing', value: 'uw-disruptblock' },
-				{ label: 'Inappropriate use of user talk page while blocked', value: 'uw-talkrevoked' },
-				{ label: 'Not here to build an encyclopedia', value: 'uw-nothereblock' },
-				{ label: 'Unsourced content', value: 'uw-ucblock' },
-				{ label: 'Vandalism', value: 'uw-vblock' },
-				{ label: 'Vandalism-only account', value: 'uw-voablock' },
+				{ label: 'บล็อกไอพี', value: 'anonblock' },
+				{ label: 'บล็อกไอพี - น่าจะเป็นโรงเรียน', value: 'anonblock - school' },
+				// { label: 'school block', value: 'school block' },
+				{ label: 'บล็อกทั่วไป (ระบุเหตุผลเอง)', value: 'uw-block' }, // ends up being default for registered users
+				{ label: 'บล็อกทั่วไป (ระบุเหตุผลเอง) - IP', value: 'uw-ablock', selected: true }, // set only when blocking IP
+				{ label: 'บล็อกทั่วไป (ระบุเหตุผลเอง) - ถาวร', value: 'uw-blockindef' },
+				{ label: 'การแก้ไขที่ทำให้เสียระบบ', value: 'uw-disruptblock' },
+				{ label: 'การใช้หน้าคุยโดยไม่เหมาะสมขณะถูกบล็อก', value: 'uw-talkrevoked' },
+				{ label: 'ไม่ได้ตั้งใจมาเพื่อสร้างสารานุกรม', value: 'uw-nothereblock' },
+				{ label: 'เพิ่มเนื้อหาที่ไม่มีแหล่งอ้างอิง', value: 'uw-ucblock' },
+				{ label: 'การก่อกวน', value: 'uw-vblock' },
+				{ label: 'บัญชีก่อกวนอย่างเดียว', value: 'uw-voablock' },
 			],
 		},
 		{
 			label: 'เหตุผลจำเพาะ',
 			list: [
-				{ label: 'Advertising', value: 'uw-adblock' },
-				{ label: 'Arbitration enforcement', value: 'uw-aeblock' },
-				{ label: 'Block evasion - IP', value: 'uw-ipevadeblock' },
-				{ label: 'BLP violations', value: 'uw-bioblock' },
-				{ label: 'Copyright violations', value: 'uw-copyrightblock' },
-				{ label: 'Creating nonsense pages', value: 'uw-npblock' },
-				{ label: 'Edit filter-related', value: 'uw-efblock' },
-				{ label: 'Edit warring', value: 'uw-ewblock' },
-				{ label: 'Generic block with talk page access revoked', value: 'uw-blocknotalk' },
-				{ label: 'Harassment', value: 'uw-hblock' },
-				{ label: 'Legal threats', value: 'uw-lblock' },
-				{ label: 'Personal attacks or harassment', value: 'uw-pablock' },
-				{ label: 'Possible compromised account', value: 'uw-compblock' },
-				{ label: 'Removal of content', value: 'uw-dblock' },
-				{ label: 'Sock puppetry (master)', value: 'uw-sockblock' },
-				{ label: 'Sock puppetry (puppet)', value: 'uw-spoablock' },
-				{ label: 'Social networking', value: 'uw-socialmediablock' },
-				{ label: 'Spam', value: 'uw-sblock' },
-				{ label: 'Spam/advertising-only account', value: 'uw-soablock' },
-				{ label: 'Unapproved bot', value: 'uw-botblock' },
-				{ label: 'Undisclosed paid editing', value: 'uw-upeblock' },
-				{ label: 'Violating the three-revert rule', value: 'uw-3block' },
+				{ label: 'โฆษณา', value: 'uw-adblock' },
+				// { label: 'Arbitration enforcement', value: 'uw-aeblock' },
+				{ label: 'การหลีกเลี่ยงการบล็อก - IP', value: 'uw-ipevadeblock' },
+				{ label: 'การละเมิดนโยบายบุคคลมีชีวิตอยู่', value: 'uw-bioblock' },
+				{ label: 'การละเมิดลิขสิทธิ์', value: 'uw-copyrightblock' },
+				{ label: 'การสร้างหน้าที่ไม่มีสาระ', value: 'uw-npblock' },
+				{ label: 'เกี่ยวข้องกับตัวกรอง', value: 'uw-efblock' },
+				{ label: 'สงความแก้ไข', value: 'uw-ewblock' },
+				{ label: 'การบล็อกโดยไม่ให้สิทธิ์หน้าคุย', value: 'uw-blocknotalk' },
+				{ label: 'การรังควาน', value: 'uw-hblock' },
+				{ label: 'ขู่ดำเนินคดี', value: 'uw-lblock' },
+				{ label: 'โจมตีตัวบุคคลหรือรังควาน', value: 'uw-pablock' },
+				{ label: 'บัญชีอาจถูกบุกรุก', value: 'uw-compblock' },
+				{ label: 'ก่อกวนลบเนื้อหา', value: 'uw-dblock' },
+				{ label: 'ผู้เชิดหุ่น', value: 'uw-sockblock' },
+				{ label: 'บัญชีหุ่นเชิด', value: 'uw-spoablock' },
+				{ label: 'พยายามทำเป็นสื่อสังคม', value: 'uw-socialmediablock' },
+				{ label: 'สแปม', value: 'uw-sblock' },
+				{ label: 'บัญชีสแปม/โฆษณาเท่านั้น', value: 'uw-soablock' },
+				// { label: 'Unapproved bot', value: 'uw-botblock' },
+				{ label: 'ได้รับค่าจ้างไม่ชี้แจง', value: 'uw-upeblock' },
+				// { label: 'Violating the three-revert rule', value: 'uw-3block' },
 			],
 		},
 		{
-			label: 'การละเมิดชื่อผู้ใช้',
+			label: 'การละเมิดนโยบายชื่อผู้ใช้',
 			list: [
-				{ label: 'Bot username, soft block', value: 'uw-botublock' },
+				// { label: 'Bot username, soft block', value: 'uw-botublock' },
 				{ label: 'Bot username, hard block', value: 'uw-botuhblock' },
 				{ label: 'Promotional username, hard block', value: 'uw-spamublock' },
 				{ label: 'Promotional username, soft block', value: 'uw-softerblock' },
@@ -540,16 +545,16 @@ export class Block extends BlockCore {
 		{
 			label: 'Templated reasons',
 			list: [
-				{ label: 'blocked proxy', value: 'blocked proxy' },
-				{ label: 'CheckUser block', value: 'CheckUser block' },
-				{ label: 'checkuserblock-account', value: 'checkuserblock-account' },
-				{ label: 'checkuserblock-wide', value: 'checkuserblock-wide' },
-				{ label: 'colocationwebhost', value: 'colocationwebhost' },
-				{ label: 'oversightblock', value: 'oversightblock' },
-				{ label: 'rangeblock', value: 'rangeblock' }, // Only for IP ranges, selected for non-/64 ranges in filtered_block_groups
-				{ label: 'spamblacklistblock', value: 'spamblacklistblock' },
-				{ label: 'tor', value: 'tor' },
-				{ label: 'webhostblock', value: 'webhostblock' },
+				{ label: 'บล็อกพร็อกซี', value: 'บล็อกพร็อกซี' },
+				{ label: 'บล็อกโดยผู้ตรวจสอบผู้ใช้', value: 'บล็อกโดยผู้ตรวจสอบผู้ใช้' },
+				{ label: 'บล็อกโดยผู้ตรวจสอบผู้ใช้-บัญชี', value: 'บล็อกโดยผู้ตรวจสอบผู้ใช้-บัญชี' },
+				{ label: 'บล็อกโดยผู้ตรวจสอบผู้ใช้-กว้าง', value: 'บล็อกโดยผู้ตรวจสอบผู้ใช้-กว้าง' },
+				// { label: 'colocationwebhost', value: 'colocationwebhost' },
+				// { label: 'oversightblock', value: 'oversightblock' },
+				// { label: 'rangeblock', value: 'rangeblock' }, // Only for IP ranges, selected for non-/64 ranges in filtered_block_groups
+				// { label: 'spamblacklistblock', value: 'spamblacklistblock' },
+				// { label: 'tor', value: 'tor' },
+				// { label: 'webhostblock', value: 'webhostblock' },
 				{ label: 'zombie proxy', value: 'zombie proxy' },
 			],
 		},
@@ -559,18 +564,18 @@ export class Block extends BlockCore {
 		{
 			label: 'แม่แบบบล็อกบางส่วนทั่วไป',
 			list: [
-				{ label: 'Generic partial block (custom reason)', value: 'uw-pblock', selected: true },
-				{ label: 'Generic partial block (custom reason) - indefinite', value: 'uw-pblockindef' },
-				{ label: 'Edit warring', value: 'uw-ewpblock' },
+				{ label: 'แม่แบบบล็อกบางส่วนทั่วไป (ระบุเหตุผลเอง)', value: 'uw-pblock', selected: true },
+				{ label: 'แม่แบบบล็อกบางส่วนทั่วไป (ระบุเหตุผลเอง) - ตลอดกาล', value: 'uw-pblockindef' },
+				{ label: 'สงครามแก้ไข', value: 'uw-ewpblock' },
 			],
 		},
 		{
 			label: 'เหตุผลบล็อกบางส่วนจำเพาะ',
 			list: [
-				{ label: 'Arbitration enforcement', value: 'uw-aepblock' },
-				{ label: 'Email harassment', value: 'uw-epblock' },
-				{ label: 'Misusing multiple accounts', value: 'uw-acpblock' },
-				{ label: 'Misusing multiple accounts - indefinite', value: 'uw-acpblockindef' },
+				{ label: 'การบังคับกรณีตามคำตัดสินของ คอต.', value: 'uw-aepblock' },
+				{ label: 'การล่วงละเมิดทางอีเมล', value: 'uw-epblock' },
+				{ label: 'การใช้งานบัญชีหลายบัญชีอย่างไม่เหมาะสม', value: 'uw-acpblock' },
+				{ label: 'การใช้งานบัญชีหลายบัญชีอย่างไม่เหมาะสม - ตลอดกาล', value: 'uw-acpblockindef' },
 			],
 		},
 	];
@@ -580,7 +585,9 @@ export class Block extends BlockCore {
 
 	toggle_see_alsos(e: QuickFormEvent) {
 		let checkbox = e.target;
-		var reason = checkbox.form?.reason.value.replace(
+		if (!checkbox.form) return;
+
+		var reason = checkbox.form.reason.value.replace(
 			new RegExp('( <!--|;) ' + 'ดูเพิ่มที่ ' + this.seeAlsos.join(' และ ') + '( -->)?'),
 			'',
 		);
@@ -590,6 +597,7 @@ export class Block extends BlockCore {
 		if (checkbox.checked) {
 			this.seeAlsos.push(checkbox.value);
 		}
+
 		var seeAlsoMessage = this.seeAlsos.join(' และ ');
 
 		if (!this.seeAlsos.length) {
@@ -601,7 +609,6 @@ export class Block extends BlockCore {
 		}
 	}
 
-	// XXX: partially move to twinkle-core
 	getBlockNoticeWikitextAndSummary(params) {
 		var text = '{{',
 			settings = this.blockPresetsInfo[params.template];
@@ -638,16 +645,16 @@ export class Block extends BlockCore {
 			// Building the template, however, takes a fair bit of logic
 			if (params.partial) {
 				if (params.pagerestrictions.length || params.namespacerestrictions.length) {
-					text += '|area=';
+					text += '|area=' + (params.indefinite ? 'certain ' : 'from certain ');
 					if (params.pagerestrictions.length) {
 						text +=
-							'บางหน้า (' +
+							'pages (' +
 							mw.language.listToText(
 								params.pagerestrictions.map((p) => {
 									return '[[:' + p + ']]';
 								}),
 							);
-						text += params.namespacerestrictions.length ? ') และบาง' : ')';
+						text += params.namespacerestrictions.length ? ') and certain ' : ')';
 					}
 					if (params.namespacerestrictions.length) {
 						// 1 => Talk, 2 => User, etc.
@@ -655,7 +662,7 @@ export class Block extends BlockCore {
 							return this.menuFormattedNamespaces[id];
 						});
 						text +=
-							'[[วิกิพีเดีย:เนมสเปซ|เนมสเปซ]] (' + mw.language.listToText(namespaceNames) + ')';
+							'[[Wikipedia:Namespace|namespaces]] (' + mw.language.listToText(namespaceNames) + ')';
 					}
 				} else if (params.area) {
 					text += '|area=' + params.area;
@@ -678,10 +685,12 @@ export class Block extends BlockCore {
 		text += '}}';
 
 		// build the edit summary
-		var summary = params.messageData.summary as string;
-		if (params.messageData.suppressArticleInSummary !== true && params.article) {
-			summary += ' ใน [[:' + params.article + ']]';
+		var summary = settings.summary as string;
+		if (settings.suppressArticleInSummary !== true && params.article) {
+			summary += ' ในหน้า [[:' + params.article + ']]';
 		}
+		console.log('text: ' + text);
+		console.log('summary: ' + summary);
 
 		return [text, summary] as [string, string];
 	}

@@ -61,6 +61,9 @@ Morebits.i18n = {
 			throw new Error('Morebits.i18n: parser must implement get()');
 		}
 		Morebits.i18n.parser = parser;
+		if (Morebits.date && Morebits.date.updateLocaleData) {
+			Morebits.date.updateLocaleData();
+		}
 	},
 	/**
 	 * @private
@@ -99,7 +102,7 @@ Morebits.l10n = {
 	 * Local aliases for "redirect" magic word.
 	 * Check using api.php?action=query&format=json&meta=siteinfo&formatversion=2&siprop=magicwords
 	 */
-	redirectTagAliases: ['#REDIRECT'],
+	redirectTagAliases: ['#REDIRECT', "#เปลี่ยนทาง"],
 
 	/**
 	 * Additional regex used to identify usernames as likely unflagged bots.
@@ -108,7 +111,7 @@ Morebits.l10n = {
 	 * @default
 	 * @type {RegExp}
 	 */
-	botUsernameRegex: /bot\b/i,
+	botUsernameRegex: /(bot|บอต)\b/i,
 
 	/**
 	 * Takes a string as argument and checks if it is a timestamp or not
@@ -1847,32 +1850,42 @@ Morebits.date = function() {
  * @property {object.<string, string>} relativeTimes
  * @private
  */
-Morebits.date.localeData = {
-	// message names here correspond to MediaWiki message names
-	months: [msg('january', 'January'), msg('february', 'February'), msg('march', 'March'),
-		msg('april', 'April'), msg('may_long', 'May'), msg('june', 'June'),
-		msg('july', 'July'), msg('august', 'August'), msg('september', 'September'),
-		msg('october', 'October'), msg('november', 'November'), msg('december', 'December')],
-	monthsShort: [msg('jan', 'Jan'), msg('feb', 'Feb'), msg('mar', 'Mar'),
-		msg('apr', 'Apr'), msg('may', 'May'), msg('jun', 'Jun'),
-		msg('jul', 'Jul'), msg('aug', 'Aug'), msg('sep', 'Sep'),
-		msg('oct', 'Oct'), msg('nov', 'Nov'), msg('dec', 'Dec')],
-	days: [msg('sunday', 'Sunday'), msg('monday', 'Monday'), msg('tuesday', 'Tuesday'),
-		msg('wednesday', 'Wednesday'), msg('thursday', 'Thursday'), msg('friday', 'Friday'),
-		msg('saturday', 'Saturday')],
-	daysShort: [msg('sun', 'Sun'), msg('mon', 'Mon'), msg('tue', 'Tue'),
-		msg('wed', 'Wed'), msg('thu', 'Thu'), msg('fri', 'Fri'),
-		msg('sat', 'Sat')],
+Morebits.date.localeData = {};
 
-	relativeTimes: {
-		thisDay: msg('relative-today', '[Today at] h:mm A'),
-		prevDay: msg('relative-prevday', '[Yesterday at] h:mm A'),
-		nextDay: msg('relative-nextday', '[Tomorrow at] h:mm A'),
-		thisWeek: msg('relative-thisweek', 'dddd [at] h:mm A'),
-		pastWeek: msg('relative-pastweek', '[Last] dddd [at] h:mm A'),
-		other: msg('relative-other', 'YYYY-MM-DD')
-	}
+/**
+ * Refresh localized strings after the i18n parser's messages have loaded.
+ *
+ * @private
+ */
+Morebits.date.updateLocaleData = function() {
+	Morebits.date.localeData = {
+		// message names here correspond to MediaWiki message names
+		months: [msg('january', 'January'), msg('february', 'February'), msg('march', 'March'),
+			msg('april', 'April'), msg('may_long', 'May'), msg('june', 'June'),
+			msg('july', 'July'), msg('august', 'August'), msg('september', 'September'),
+			msg('october', 'October'), msg('november', 'November'), msg('december', 'December')],
+		monthsShort: [msg('jan', 'Jan'), msg('feb', 'Feb'), msg('mar', 'Mar'),
+			msg('apr', 'Apr'), msg('may', 'May'), msg('jun', 'Jun'),
+			msg('jul', 'Jul'), msg('aug', 'Aug'), msg('sep', 'Sep'),
+			msg('oct', 'Oct'), msg('nov', 'Nov'), msg('dec', 'Dec')],
+		days: [msg('sunday', 'Sunday'), msg('monday', 'Monday'), msg('tuesday', 'Tuesday'),
+			msg('wednesday', 'Wednesday'), msg('thursday', 'Thursday'), msg('friday', 'Friday'),
+			msg('saturday', 'Saturday')],
+		daysShort: [msg('sun', 'Sun'), msg('mon', 'Mon'), msg('tue', 'Tue'),
+			msg('wed', 'Wed'), msg('thu', 'Thu'), msg('fri', 'Fri'),
+			msg('sat', 'Sat')],
+
+		relativeTimes: {
+			thisDay: msg('relative-today', '[Today at] h:mm A'),
+			prevDay: msg('relative-prevday', '[Yesterday at] h:mm A'),
+			nextDay: msg('relative-nextday', '[Tomorrow at] h:mm A'),
+			thisWeek: msg('relative-thisweek', 'dddd [at] h:mm A'),
+			pastWeek: msg('relative-pastweek', '[Last] dddd [at] h:mm A'),
+			other: msg('relative-other', 'YYYY-MM-DD')
+		}
+	};
 };
+Morebits.date.updateLocaleData();
 
 /**
  * Map units with getter/setter function names, for `add` and `subtract`

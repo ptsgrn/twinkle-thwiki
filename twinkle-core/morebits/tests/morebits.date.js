@@ -38,6 +38,26 @@ QUnit.test('Methods', assert => {
 	assert.true(new Morebits.date(now).isAfter(date), 'isAfter');
 	assert.true(date.isBefore(new Date(now)), 'isBefore');
 });
+QUnit.test('Localized names', assert => {
+	var messages = {
+		november: 'พฤศจิกายน',
+		nov: 'พ.ย.',
+		saturday: 'วันเสาร์',
+		sat: 'ส.'
+	};
+	Morebits.i18n.setParser({
+		get: function(message) {
+			return messages[message] || message;
+		}
+	});
+	assert.strictEqual(date.getMonthName(), 'พฤศจิกายน', 'MonthName');
+	assert.strictEqual(date.getMonthNameAbbrev(), 'พ.ย.', 'MonthNameAbbrev');
+	assert.strictEqual(date.getDayName(), 'วันเสาร์', 'DayName');
+	assert.strictEqual(date.getDayNameAbbrev(), 'ส.', 'DayNameAbbrev');
+
+	// Restore the fallback-only parser for the remaining tests.
+	Morebits.i18n.setParser({ get: function(message) { return message; } });
+});
 QUnit.test('RegEx headers', assert => {
 	assert.strictEqual(date.monthHeader(), '== November 2020 ==', 'Month header default');
 	assert.strictEqual(date.monthHeader(3), '=== November 2020 ===', 'Month header 3');
