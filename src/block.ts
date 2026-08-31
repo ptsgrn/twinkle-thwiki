@@ -10,8 +10,11 @@ export class Block extends BlockCore {
 	};
 
 	portletId = 'twinkle-block';
-	portletName = 'บล็อกผู้ใช้';
-	portletTooltip = 'บล็อกผู้ใช้ที่เกี่ยวกับหน้านี้';
+
+	beforeAddMenu() {
+		this.portletName = 'บล็อกผู้ใช้';
+		this.portletTooltip = 'บล็อกผู้ใช้ที่เกี่ยวกับหน้านี้';
+	}
 
 	blockPresetsInfo = {
 		'anonblock': {
@@ -689,8 +692,6 @@ export class Block extends BlockCore {
 		if (settings.suppressArticleInSummary !== true && params.article) {
 			summary += ' ในหน้า [[:' + params.article + ']]';
 		}
-		console.log('text: ' + text);
-		console.log('summary: ' + summary);
 
 		return [text, summary] as [string, string];
 	}
