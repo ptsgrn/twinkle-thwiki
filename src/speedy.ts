@@ -33,6 +33,14 @@ export class CSD extends SpeedyCore {
 
 		this.params.csd.forEach((value: string, index: number) => {
 			const criterion = this.flatObject[value];
+			if (value === 'reason') {
+				const customReason = this.params.templateParams[index]['1'];
+				if (customReason) {
+					generalReasons.push(customReason);
+				}
+				return;
+			}
+
 			const templateName = specificTemplates[criterion.code];
 
 			if (!templateName) {
@@ -60,6 +68,26 @@ export class CSD extends SpeedyCore {
 		visible: (self: SpeedyCore) => boolean;
 		list: criterion[];
 	}> = [
+		{
+			label: 'เหตุผลกำหนดเอง',
+			visible: (self) => !self.mode.isMultiple,
+			list: [
+				{
+					label: 'เหตุผลอื่นที่ไม่ตรงกับเกณฑ์ด้านล่าง',
+					value: 'reason',
+					code: 'ลบ',
+					tooltip: 'ระบุเหตุผลที่จะใส่ในแม่แบบ {{ลบ|เหตุผล}}',
+					subgroup: {
+						name: 'reason_1',
+						parameter: '1',
+						type: 'input',
+						label: 'เหตุผล: ',
+						size: 60,
+					},
+					hideWhenMultiple: true,
+				},
+			],
+		},
 		{
 			label: 'ทั่วไป',
 			visible: () => true,
@@ -149,7 +177,15 @@ export class CSD extends SpeedyCore {
 					value: 'ท10',
 					code: 'ท10',
 					tooltip:
-						'หน้าในเนมสเปซฉบับร่างหรือหน้าชั่วคราวที่ไม่มีผู้ใช้แก้ไขเป็นเวลาหกเดือน โดยไม่นับการแก้ไขของบอต',
+						'หน้าในเนมสเปซฉบับร่างหรือฉบับร่างในเนมสเปซผู้ใช้ที่ไม่มีผู้ใช้แก้ไขเป็นเวลาหกเดือน โดยไม่นับการแก้ไขของบอต',
+					showInNamespaces: [2, 118],
+					hideWhenRedirect: true,
+					subgroup: {
+						type: 'hidden',
+						name: 'ท10_timestamp',
+						parameter: 'ts',
+						value: '$TIMESTAMP',
+					},
 				},
 			],
 		},
@@ -513,7 +549,7 @@ export class CSD extends SpeedyCore {
 
 		$('[name=delete_options]').toggle(this.mode.isSysop);
 		$('[name=tag_options]').toggle(!this.mode.isSysop);
-		$('button.tw-speedy-submit').text(this.mode.isSysop ? 'ลบหน้า' : 'บันทึการแจ้ง');
+		$('button.tw-speedy-submit').text(this.mode.isSysop ? 'ลบหน้า' : 'บันทึกการแจ้ง');
 
 		let work_area = new Morebits.quickForm.element({
 			type: 'div',
@@ -539,19 +575,6 @@ export class CSD extends SpeedyCore {
 		this.appendCriteriaLists(work_area);
 
 		$(form).find('[name=work_area]').replaceWith(work_area.render());
-
-		// if sysop, check if CSD is already on the page and fill in custom rationale
-		if (this.mode.isSysop && this.hasCSD) {
-			let customOption = $('input[name=csd][value=reason]')[0];
-			if (customOption) {
-				if (getPref('speedySelectionStyle') !== 'radioClick') {
-					// force listeners to re-init
-					customOption.click();
-				}
-				let deleteReason = decodeURIComponent($('#delete-reason').text()).replace(/\+/g, ' ');
-				$('input[name="csd.reason_1"]').val(deleteReason);
-			}
-		}
 	}
 
 	generateCsdList(list: Array<criterion>) {
@@ -632,12 +655,90 @@ export class CSD extends SpeedyCore {
 			.filter((e) => e); // don't include items that have been made null
 	}
 
+	getExistingCriteria() {
+		const criterionValuesByCode: Record<string, string> = {};
+		this.criteriaLists.forEach((criteriaList) => {
+			criteriaList.list.forEach((criterion) => {
+				criterionValuesByCode[criterion.code] = criterion.value;
+			});
+		});
+
+		const existingCriteria: string[] = [];
+		document.querySelectorAll<HTMLElement>('[id="delete-criterion"]').forEach((marker) => {
+			const criterionValue = criterionValuesByCode[marker.textContent.trim()];
+			if (criterionValue && !existingCriteria.includes(criterionValue)) {
+				existingCriteria.push(criterionValue);
+			}
+		});
+		return existingCriteria;
+	}
+
+	getExistingDeletionReasons() {
+		const existingReasons: string[] = [];
+		document.querySelectorAll<HTMLElement>('[id="delete-reason"]').forEach((marker) => {
+			const encodedReason = marker.textContent.trim();
+			if (!encodedReason) {
+				return;
+			}
+
+			let reason: string;
+			try {
+				reason = decodeURIComponent(encodedReason.replace(/\+/g, ' '));
+			} catch {
+				reason = encodedReason;
+			}
+			if (!existingReasons.includes(reason)) {
+				existingReasons.push(reason);
+			}
+		});
+		return existingReasons;
+	}
+
+	selectCriterion(input: HTMLInputElement) {
+		input.checked = true;
+		input.dispatchEvent(new Event('change'));
+	}
+
+	selectExistingCriteria(existingCriteria: string[]) {
+		if (existingCriteria.length > 1) {
+			const multipleInputName = this.mode.isSysop ? 'delmultiple' : 'multiple';
+			const multipleInput = this.result.elements.namedItem(multipleInputName) as HTMLInputElement;
+			if (multipleInput) {
+				multipleInput.checked = true;
+				this.modeChanged(this.result);
+			}
+		}
+
+		this.result.querySelectorAll<HTMLInputElement>('input[name="csd"]').forEach((input) => {
+			if (existingCriteria.includes(input.value)) {
+				this.selectCriterion(input);
+			}
+		});
+	}
+
+	selectCustomReason(reason: string) {
+		const customOption = this.result.querySelector<HTMLInputElement>(
+			'input[name="csd"][value="reason"]',
+		);
+		if (!customOption) {
+			return;
+		}
+
+		this.selectCriterion(customOption);
+		const reasonInput = this.result.querySelector<HTMLInputElement>('input[name="csd.reason_1"]');
+		if (reasonInput) {
+			reasonInput.value = reason;
+		}
+	}
+
 	makeWindow() {
 		this.dialog = new Dialog(getPref('speedyWindowWidth'), getPref('speedyWindowHeight'));
 		this.dialog.setTitle(this.windowTitle);
 		this.dialog.setFooterLinks(this.footerlinks);
 
-		this.hasCSD = !!$('#delete-reason').length;
+		const existingCriteria = this.getExistingCriteria();
+		const existingDeletionReasons = this.getExistingDeletionReasons();
+		this.hasCSD = existingCriteria.length > 0 || existingDeletionReasons.length > 0;
 		this.makeFlatObject();
 
 		let form = new Morebits.quickForm(
@@ -816,6 +917,10 @@ export class CSD extends SpeedyCore {
 		this.dialog.display();
 
 		this.modeChanged(this.result);
+		this.selectExistingCriteria(existingCriteria);
+		if (!existingCriteria.length && existingDeletionReasons.length) {
+			this.selectCustomReason(existingDeletionReasons.join(', '));
+		}
 
 		// Check for prior deletions.  Just once, upon init
 		this.priorDeletionCount();
@@ -947,5 +1052,110 @@ export class CSD extends SpeedyCore {
 				window.location.href = mw.util.getUrl(Morebits.pageNameNorm);
 			}, 50000);
 		});
+	}
+
+	tagPage(pageobj: Page) {
+		let params = this.params;
+		let text = pageobj.getPageText();
+		let code = this.getTaggingCode();
+
+		// Set the correct value for |ts= parameter in {{ลบ-ท10}}
+		if (params.normalizeds.indexOf('ท10') !== -1) {
+			code = code.replace('$TIMESTAMP', pageobj.getLastEditTime());
+		}
+		if (params.requestsalt) {
+			code = '{{salt}}\n' + code;
+		}
+
+		// Post on talk if it is not possible to tag
+		if (
+			!pageobj.canEdit() ||
+			['wikitext', 'Scribunto', 'javascript', 'css', 'sanitized-css'].indexOf(
+				pageobj.getContentModel(),
+			) === -1
+		) {
+			// Attempt to place on talk page
+			let talkName = new mw.Title(pageobj.getPageName()).getTalkPage().toText();
+
+			if (talkName === pageobj.getPageName()) {
+				pageobj
+					.getStatusElement()
+					.error('หน้านี้ถูกป้องกันและไม่สามารถเพิ่มคำขอแก้ไขได้, กำลังยกเลิก');
+				return $.Deferred().reject();
+			}
+
+			pageobj.getStatusElement().warn('ไม่สามารถแก้ไขหน้านี้ได้, กำลังวางแท็กบนหน้าพูดคุยแทน');
+
+			let talk_page = new Page(talkName, 'กำลังใส่แม่แบบบนหน้าพูดคุยแทน');
+			talk_page.setNewSectionTitle('แจ้งลบทันทีหน้า' + pageobj.getPageName());
+			talk_page.setNewSectionText(
+				code +
+					'\n\nเนื่องจากไม่สามารถใส่แม่แบบแจ้งลบในหน้า ' +
+					pageobj.getPageName() +
+					' ได้ จึงแจ้งที่นี่แทน โปรดพิจารณาลบหน้าดังกล่าว ~~~~',
+			);
+			talk_page.setCreateOption('recreate');
+			talk_page.setFollowRedirect(true);
+			talk_page.setWatchlist(params.watch);
+			talk_page.setChangeTags(Twinkle.changeTags);
+			return talk_page.newSection();
+		}
+
+		// Remove tags that become superfluous with this action
+		text = text.replace(/\{\{\s*([Uu]serspace draft)\s*(\|(?:\{\{[^{}]*\}\}|[^{}])*)?\}\}\s*/g, '');
+		if (mw.config.get('wgNamespaceNumber') === 6) {
+			// remove "move to Commons" tag - deletion-tagged files cannot be moved to Commons
+			text = text.replace(
+				/\{\{(mtc|(copy |move )?to ?commons|ย้ายไปคอมมอนส์|move to wikimedia commons|copy to wikimedia commons)[^}]*\}\}/gi,
+				'',
+			);
+		}
+
+		// Wrap SD template in noinclude tags if we are in template space.
+		// Won't work with userboxes in userspace, or any other transcluded page outside template space
+		if (mw.config.get('wgNamespaceNumber') === 10) {
+			// Template:
+			code = '<noinclude>' + code + '</noinclude>';
+		}
+
+		if (mw.config.get('wgPageContentModel') === 'Scribunto') {
+			// Scribunto isn't parsed like wikitext, so CSD templates on modules need special handling to work
+			let equals = '';
+			while (code.indexOf(']' + equals + ']') !== -1) {
+				equals += '=';
+			}
+			code =
+				"require('Module:Module wikitext')._addText([" + equals + '[' + code + ']' + equals + ']);';
+		} else if (
+			['javascript', 'css', 'sanitized-css'].indexOf(mw.config.get('wgPageContentModel')) !== -1
+		) {
+			// Likewise for JS/CSS pages
+			code = '/* ' + code + ' */';
+		}
+
+		// Generate edit summary for edit
+		let editsummary;
+		if (params.normalizeds[0] === 'db' || params.normalizeds[0] === 'ลบ') {
+			editsummary = 'แจ้ง[[WP:CSD|ลบทันที]]เนื่องจาก "' + params.templateParams[0]['1'] + '"';
+		} else {
+			let criteriaText = params.normalizeds
+				.map((norm) => {
+					return '[[WP:CSD#' + norm.toUpperCase() + '|ข้อ ' + norm.toUpperCase() + ']]';
+				})
+				.join(', ');
+			editsummary = 'แจ้ง[[WP:CSD|ลบทันที]] (' + criteriaText + ').';
+		}
+
+		// Blank attack pages
+		if (params.redactContents) {
+			text = code;
+		} else {
+			text = this.insertTagText(code, text);
+		}
+
+		pageobj.setPageText(text);
+		pageobj.setEditSummary(editsummary);
+		pageobj.setWatchlist(params.watch);
+		return pageobj.save();
 	}
 }
