@@ -1,325 +1,509 @@
-// import { Twinkle } from '../twinkle';
-// import { makeArray, obj_entries } from '../utils';
-// import { Page } from '../Page';
-// import { Api } from '../Api';
-// import { Dialog } from '../Dialog';
-// import { Preference, getPref } from '../Config';
-// import { TwinkleModule } from '../twinkleModule';
+import { Api, criterion, Dialog, getPref, makeArray, Page, SpeedyCore, Twinkle } from './core';
 
-import {
-	Twinkle,
-	makeArray,
-	obj_entries,
-	Page,
-	Api,
-	Dialog,
-	Preference,
-	getPref,
-	TwinkleModule,
-	SpeedyCore,
-} from 'twinkle-core/src';
-// TODO: still quite a bit of enwiki specific logic here
+export class CSD extends SpeedyCore {
+	footerlinks = {
+		'เงื่อนไขสำหรับการลบทันที': 'WP:CSD',
+		'วิธีใช้ Twinkle': 'WP:TW/DOC#speedy',
+		'เสนอแนะการใช้งาน': 'WT:TW',
+	};
 
-export interface criterion extends quickFormElementData {
-	value: string; // made compulsory
-	code: string;
-	subgroup?: criteriaSubgroup | criteriaSubgroup[];
+	windowTitle = 'เลือกเงื่อนไขสำหรับการลบทันที';
 
-	showInNamespaces?: number[];
-	hideInNamespaces?: number[];
-
-	// These are booleans, but `true` is used instead of `boolean` because
-	// when the value should be false, the prop should be omitted.
-	redactContents?: true; // used for attack pages
-	hideWhenMultiple?: true;
-	hideWhenSingle?: true;
-	hideWhenUser?: true;
-	hideWhenSysop?: true;
-	hideSubgroupWhenUser?: true;
-	hideSubgroupWhenSingle?: true;
-	hideSubgroupWhenMultiple?: true;
-	hideSubgroupWhenSysop?: true;
-	hideWhenRedirect?: true;
-}
-
-export interface criteriaSubgroup extends quickFormElementData {
-	parameter?: string;
-	utparam?: string;
-	log?: string | null;
-}
-
-/**
- * Module for tagging pages for speedy deletion and for admins to delete pages.
- * Can also delete the talk page, delete redirects, and unlink backlinks while
- * deleting.
- */
-export abstract class Speedy extends SpeedyCore {
-	static moduleName = 'CSD';
-
-	dialog: Dialog;
-	form: Morebits.quickForm;
-	result: HTMLFormElement;
-	hasCSD: boolean;
-	flatObject: Record<string, criterion>;
-	params: Record<string, any>;
-	namespace: number;
-	mode: { isSysop: boolean; isMultiple: boolean; isRadioClick: boolean };
-	isRedirect: boolean;
-	abstract criteriaLists: Array<{
-		label: string;
-		visible: (self: Speedy) => boolean;
-		list: Array<criterion>;
-	}>;
-
-	portletName = 'ลบทันที';
-	portletId = 'twinkle-csd';
-	portletTooltip = Morebits.userIsSysop
-		? 'ลบหน้าตามเงื่อนไขสำหรับลบทันที'
-		: 'แจ้งลบหน้าตามเงื่อนไขสำหรับลบทันที (CSD)';
-	windowTitle = 'เลือกเงื่อนไขสำหรับลบทันที';
-
-	constructor() {
-		super();
-		this.addMenu();
+	beforeAddMenu() {
+		this.portletName = 'ลบทันที';
+		this.portletTooltip = Morebits.userIsSysop
+			? 'ลบหน้านี้ตามนโยบายลบทันที'
+			: 'ติดป้ายแจ้งลบให้ผู้ดูแลระบบลบหน้านี้ตามนโยบายลบทันที';
 	}
 
-	makeWindow() {
-		this.dialog = new Dialog(getPref('speedyWindowWidth'), getPref('speedyWindowHeight'));
-		this.dialog.setTitle(this.windowTitle);
-		this.dialog.setFooterLinks(this.footerlinks);
+	getTaggingCode() {
+		const specificTemplates: Record<string, string> = {
+			ท4: 'ลบ-ท4',
+			ท5: 'ลบ-ท5',
+			ท6: 'ลบ-ท6',
+			ท10: 'ลบ-ท10',
+			ปท1: 'ลบ-ปท1',
+			ฟ5: 'ลบ-ฟ5',
+			ม2: 'ลบ-ม2',
+			ผ1: 'ลบ-ผ1',
+		};
 
-		this.hasCSD = !!$('#delete-reason').length;
-		this.makeFlatObject();
+		const generalReasons: string[] = [];
+		const criterionTemplates: string[] = [];
 
-		let form = new Morebits.quickForm(
-			(e) => this.evaluate(e),
-			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null,
-		);
-		this.form = form;
+		this.params.csd.forEach((value: string, index: number) => {
+			const criterion = this.flatObject[value];
+			const templateName = specificTemplates[criterion.code];
 
-		if (Morebits.userIsSysop) {
-			form.append({
-				type: 'checkbox',
-				list: [
-					{
-						label: 'ติดแท็กหน้าเท่านั้น ไม่ลบตอนนี้',
-						value: 'tag_only',
-						name: 'tag_only',
-						tooltip: 'ถ้าคุณต้องการแค่ติดแท็กหน้าเท่านั้น ไม่ลบตอนนี้',
-						checked: !(this.hasCSD || getPref('deleteSysopDefaultToDelete')),
-						event: (event) => {
-							let cForm = event.target.form;
-							let cChecked = event.target.checked;
-							// enable talk page checkbox
-							if (cForm.deleteTalkPage) {
-								cForm.deleteTalkPage.checked = !cChecked && getPref('deleteTalkPageOnDelete');
-							}
-							// enable redirects checkbox
-							cForm.deleteRedirects.checked = !cChecked;
-							// enable delete multiple
-							cForm.delmultiple.checked = false;
-							// enable notify checkbox
-							cForm.notify.checked = cChecked;
-							// enable deletion notification checkbox
-							cForm.warnusertalk.checked = !cChecked && !this.hasCSD;
-							// enable multiple
-							cForm.multiple.checked = false;
-							// enable requesting creation protection
-							cForm.requestsalt.checked = false;
-
-							this.modeChanged(cForm);
-
-							event.stopPropagation();
-						},
-					},
-				],
-			});
-
-			let deleteOptions = form.append({
-				type: 'div',
-				name: 'delete_options',
-			});
-			deleteOptions.append({
-				type: 'header',
-				label: 'ตัวเลือกที่เกี่ยวข้องกับการลบ',
-			});
-			if (
-				mw.config.get('wgNamespaceNumber') % 2 === 0 &&
-				(mw.config.get('wgNamespaceNumber') !== 2 || /\//.test(mw.config.get('wgTitle')))
-			) {
-				// hide option for user pages, to avoid accidentally deleting user talk page
-				deleteOptions.append({
-					type: 'checkbox',
-					list: [
-						{
-							label: 'ลบหน้าพูดคุยด้วย',
-							value: 'deleteTalkPage',
-							name: 'deleteTalkPage',
-							tooltip:
-								'ตัวเลือกนี้จะลบหน้าพูดคุยของหน้าด้วย หากคุณเลือกเงื่อนไข ฟ7 (ย้ายไป Commons) ตัวเลือกนี้จะถูกละเว้นและหน้าพูดคุยจะไม่ถูกลบ',
-							checked: getPref('deleteTalkPageOnDelete'),
-							event: (event) => event.stopPropagation(),
-						},
-					],
-				});
+			if (!templateName) {
+				const excerpt = String(criterion.label).replace(/^[^:]+:\s*/, '');
+				generalReasons.push(`[[WP:${criterion.code}|${criterion.code}]]: ${excerpt}`);
+				return;
 			}
-			deleteOptions.append({
-				type: 'checkbox',
-				list: [
-					{
-						label: 'ลบการเปลี่ยนทางมาหน้านี้',
-						value: 'deleteRedirects',
-						name: 'deleteRedirects',
-						tooltip:
-							'ตัวเลือกนี้จะลบการเปลี่ยนทางมาหน้านี้ด้วย หลีกเลี่ยงตัวเลือกนี้สำหรับการลบตามกระบวนการ (เช่น ย้าย/รวม)',
-						checked: getPref('deleteRedirectsOnDelete'),
-						event: (event) => event.stopPropagation(),
-					},
-					{
-						label: 'ลบภายใต้หลายเงื่อนไข',
-						value: 'delmultiple',
-						name: 'delmultiple',
-						tooltip:
-							'เมื่อเลือก คุณสามารถเลือกหลายเงื่อนไขที่ใช้กับหน้าดังกล่าวได้ เช่น ท8 และ บ5 พบได้บ่อยสำหรับบทความ',
-						event: (event) => {
-							this.modeChanged(event.target.form);
-							event.stopPropagation();
-						},
-					},
-					{
-						label: 'แจ้งผู้สร้างหน้าถึงการลบหน้า',
-						value: 'warnusertalk',
-						name: 'warnusertalk',
-						tooltip:
-							'แม่แบบแจ้งเตือนจะถูกเพิ่มไปที่หน้าคุยของผู้สร้างหน้า ถ้าคุณเปิดใช้งานการแจ้งเตือนในตัวเลือก Twinkle ของคุณสำหรับเงื่อนไขที่คุณเลือก และกล่องนี้ถูกเลือก ผู้สร้างหน้าอาจได้รับการต้อนรับด้วย',
-						checked: !this.hasCSD,
-						event: (event) => event.stopPropagation(),
-					},
-				],
-			});
-		}
 
-		let tagOptions = form.append({
-			type: 'div',
-			name: 'tag_options',
+			const templateParams = this.params.templateParams[index];
+			const parameters = Object.keys(templateParams)
+				.map((parameter) => `|${parameter}=${templateParams[parameter]}`)
+				.join('');
+			criterionTemplates.push(`{{${templateName}${parameters}}}`);
 		});
 
-		if (Morebits.userIsSysop) {
-			tagOptions.append({
-				type: 'header',
-				label: 'ตัวเลือกที่เกี่ยวข้องกับการติดป้าย',
-			});
+		if (generalReasons.length) {
+			criterionTemplates.unshift(`{{ลบ|${generalReasons.join(', ')}}}`);
 		}
 
-		tagOptions.append({
-			type: 'checkbox',
+		return criterionTemplates.join('\n');
+	}
+
+	criteriaLists: Array<{
+		label: string;
+		visible: (self: SpeedyCore) => boolean;
+		list: criterion[];
+	}> = [
+		{
+			label: 'ทั่วไป',
+			visible: () => true,
 			list: [
 				{
-					label: 'แจ้งผู้สร้างหน้าถึงการลบหน้า',
-					value: 'notify',
-					name: 'notify',
+					label: 'ท1: ไม่มีเนื้อหาอย่างชัดเจน ไม่มีความหมาย หรือไม่อาจเข้าใจได้',
+					value: 'ท1',
+					code: 'ท1',
 					tooltip:
-						'แม่แบบแจ้งเตือนจะถูกเพิ่มไปที่หน้าคุยของผู้สร้างหน้า ถ้าคุณเปิดใช้งานการแจ้งเตือนในตัวเลือก Twinkle ของคุณสำหรับเงื่อนไขที่คุณเลือก และกล่องนี้ถูกเลือก ผู้สร้างหน้าอาจได้รับการต้อนรับด้วย',
-					checked: !Morebits.userIsSysop || !(this.hasCSD || getPref('deleteSysopDefaultToDelete')),
-					event: (event) => event.stopPropagation(),
+						'ทั้งหน้าเป็นข้อความไม่ปะติดปะต่อหรือไร้ความหมาย และไม่มีเนื้อหาหรือประวัติที่มีความหมาย',
+					hideInNamespaces: [2],
 				},
 				{
-					label: 'ติดป้ายขอการป้องกันการสร้าง (salting) ด้วย',
-					value: 'requestsalt',
-					name: 'requestsalt',
+					label: 'ท2: หน้าทดลอง',
+					value: 'ท2',
+					code: 'ท2',
 					tooltip:
-						'เมื่อเลือก ป้ายลบทันทีจะมาพร้อมกับป้าย {{salt}} ที่ขอให้ผู้ดูแลระบบที่ลบหน้าดังกล่าวใช้การป้องกันการสร้าง เลือกเฉพาะหากหน้านี้ถูกสร้างซ้ำหลายครั้ง',
-					event: (event) => event.stopPropagation(),
+						'หน้าที่สร้างเพื่อทดลองการแก้ไขหรือฟังก์ชันของวิกิพีเดีย ไม่รวมหน้าทดลองเขียนหลัก หน้าในเนมสเปซผู้ใช้ และแม่แบบสมบูรณ์ที่ไม่ได้ใช้หรือซ้ำซ้อน',
+					hideInNamespaces: [2],
 				},
 				{
-					label: 'ติดป้ายด้วยหลายเงื่อนไข',
-					value: 'multiple',
-					name: 'multiple',
+					label: 'ท3: การก่อกวนและหลอกลวงชัดแจ้ง',
+					value: 'ท3',
+					code: 'ท3',
 					tooltip:
-						'เมื่อเลือก คุณสามารถเลือกหลายเงื่อนไขที่ใช้กับหน้าดังกล่าวได้ เช่น ท8 และ บ5 พบได้บ่อยสำหรับบทความ',
-					event: (event) => {
-						this.modeChanged(event.target.form);
-						event.stopPropagation();
+						'ทั้งหน้าเป็นการก่อกวน ข้อมูลเท็จหรือเรื่องหลอกลวงอย่างชัดแจ้ง รวมถึงหน้าเปลี่ยนทางที่เกิดจากการก่อกวนย้ายหน้า',
+				},
+				{
+					label: 'ท4: การลบทางเทคนิค',
+					value: 'ท4',
+					code: 'ท4',
+					tooltip:
+						'การบำรุงรักษาที่ไม่มีข้อพิพาท เช่น เปิดทางให้ย้ายหน้า ลบหน้าแก้ความกำกวมที่ไม่จำเป็น หรือแก้หน้าที่สร้างผิดที่',
+					subgroup: {
+						name: 'ท4_rationale',
+						parameter: 'rationale',
+						type: 'input',
+						label: 'เหตุผลทางเทคนิค: ',
+						size: 60,
+					},
+				},
+				{
+					label: 'ท5: ผู้เริ่มเขียนแจ้งลบ',
+					value: 'ท5',
+					code: 'ท5',
+					tooltip:
+						'ผู้ที่เพิ่มเนื้อหาสาระสำคัญเพียงผู้เดียวร้องขอโดยสุจริต หรือทำหน้าว่างในกรณีที่นับเป็นคำขอลบได้ ไม่ใช้กับหน้าคุยกับผู้ใช้',
+				},
+				{
+					label: 'ท6: หน้าซึ่งขึ้นกับหน้าว่าง',
+					value: 'ท6',
+					code: 'ท6',
+					tooltip:
+						'เช่น หน้าพูดคุยหรือหน้าย่อยกำพร้า หน้าไฟล์ที่ไม่มีไฟล์ และหน้าเปลี่ยนทางเสีย โดยไม่รวมหน้าที่ยังเป็นประโยชน์ต่อโครงการ',
+					subgroup: {
+						name: 'ท6_page',
+						parameter: '1',
+						type: 'input',
+						label: 'หน้าที่ไม่มีอยู่หรือถูกลบแล้ว (ถ้ามี): ',
+						size: 60,
+					},
+				},
+				{
+					label: 'ท7: หน้าโจมตี ข่มขู่ หรือก่อกวน',
+					value: 'ท7',
+					code: 'ท7',
+					tooltip:
+						'หน้าที่มีจุดประสงค์เพียงดูหมิ่น โจมตี ข่มขู่ หรือก่อกวน และไม่มีรุ่นเป็นกลางในประวัติให้ย้อนกลับ',
+					redactContents: true,
+				},
+				{
+					label: 'ท8: การโฆษณาหรือส่งเสริมชัดเจน',
+					value: 'ท8',
+					code: 'ท8',
+					tooltip:
+						'ทั้งหน้าเป็นการส่งเสริมและต้องเขียนใหม่โดยพื้นฐานจึงจะเป็นสารานุกรม การส่งเสริมไม่จำกัดเฉพาะเชิงพาณิชย์',
+				},
+				{
+					label: 'ท9: การสร้างหน้าที่เคยถูกลบใหม่',
+					value: 'ท9',
+					code: 'ท9',
+					tooltip:
+						'สำเนาที่เหมือนอย่างมีนัยสำคัญกับหน้าซึ่งการอภิปรายลบล่าสุดมีมติให้ลบ โดยยังไม่ได้ปรับปรุงเพียงพอและเหตุแห่งการลบยังคงอยู่',
+				},
+				{
+					label: 'ท10: ฉบับร่างหรือหน้าชั่วคราวที่ไม่ได้รับการพัฒนาต่อ',
+					value: 'ท10',
+					code: 'ท10',
+					tooltip:
+						'หน้าในเนมสเปซฉบับร่างหรือหน้าชั่วคราวที่ไม่มีผู้ใช้แก้ไขเป็นเวลาหกเดือน โดยไม่นับการแก้ไขของบอต',
+				},
+			],
+		},
+		{
+			label: 'บทความ',
+			visible: (self) => !self.isRedirect && [0, 100].includes(self.namespace),
+			list: [
+				{
+					label: 'บ1: ขาดบริบท',
+					value: 'บ1',
+					code: 'บ1',
+					tooltip: 'บทความสั้นมากจนมีบริบทไม่เพียงพอที่จะระบุว่าหัวเรื่องของบทความคืออะไร',
+				},
+				{
+					label: 'บ2: บทความภาษาต่างประเทศ หรือคาดว่าใช้โปรแกรมแปลภาษา',
+					value: 'บ2',
+					code: 'บ2',
+					tooltip:
+						'เนื้อหาส่วนใหญ่หรือทั้งหมดไม่ใช่ภาษาไทย หรือเป็นภาษาไทยที่เรียบเรียงไม่ถูกต้องจนอ่านจับใจความไม่ได้',
+				},
+				{
+					label: 'บ3: ขาดเนื้อหา',
+					value: 'บ3',
+					code: 'บ3',
+					tooltip:
+						'มีเพียงลิงก์ หมวดหมู่ ส่วนดูเพิ่ม การกล่าวชื่อซ้ำ ข้อความสนทนา แม่แบบ หรือภาพ โดยไม่มีเนื้อหาสารานุกรม',
+				},
+				{
+					label: 'บ4: บทความที่ย้ายข้ามโครงการแล้ว',
+					value: 'บ4',
+					code: 'บ4',
+					tooltip:
+						'นิยาม แหล่งข้อมูลปฐมภูมิ หรือเรื่องที่มีมติให้ย้าย ถูกย้ายไปโครงการอื่นและบันทึกสารสนเทศผู้แต่งเรียบร้อยแล้ว',
+				},
+				{
+					label: 'บ5: ไม่มีสิ่งชี้บอกความสำคัญ',
+					value: 'บ5',
+					code: 'บ5',
+					tooltip:
+						'บทความเกี่ยวกับบุคคล สัตว์เฉพาะตัว องค์การ เนื้อหาเว็บ หรือผลงานดนตรีที่ไม่ชี้ความสำคัญหรือความโดดเด่น ไม่รวมสถาบันการศึกษา',
+				},
+				{
+					label: 'บ6: บทความเพิ่งสร้างที่เป็นสำเนาของหัวเรื่องที่มีอยู่เดิม',
+					value: 'บ6',
+					code: 'บ6',
+					tooltip:
+						'บทความใหม่ซ้ำเรื่องที่มีอยู่ ไม่ได้เพิ่มหรือปรับปรุงสาระที่รวมได้ และชื่อไม่ควรเก็บเป็นหน้าเปลี่ยนทาง',
+				},
+			],
+		},
+		{
+			label: 'หน้าเปลี่ยนทาง',
+			visible: (self) => self.isRedirect,
+			list: [
+				{
+					label: 'ปท1: การเปลี่ยนทางข้ามเนมสเปซ',
+					value: 'ปท1',
+					code: 'ปท1',
+					tooltip:
+						'หน้าเปลี่ยนทางจากเนมสเปซหลักไปเนมสเปซอื่น ยกเว้นหมวดหมู่ แม่แบบ วิกิพีเดีย วิธีใช้ และสถานีย่อย',
+					showInNamespaces: [0],
+				},
+				{
+					label: 'ปท2: ความผิดพลาดในการพิมพ์',
+					value: 'ปท2',
+					code: 'ปท2',
+					tooltip:
+						'หน้าเปลี่ยนทางที่เพิ่งสร้างจากคำพิมพ์ผิดหรือชื่อผิดที่ไม่น่าใช้ ไม่รวมคำผิดที่เป็นประโยชน์หรือหน้าเปลี่ยนทางจากการย้ายหรือรวมหน้า',
+				},
+			],
+		},
+		{
+			label: 'ไฟล์',
+			visible: (self) => !self.isRedirect && self.namespace === 6,
+			list: [
+				{
+					label: 'ฟ1: เกิน',
+					value: 'ฟ1',
+					code: 'ฟ1',
+					tooltip:
+						'สำเนาที่ไม่ได้ใช้หรือมีคุณภาพหรือความละเอียดต่ำกว่าของไฟล์อื่นในวิกิพีเดียภาษาไทยซึ่งมีรูปแบบไฟล์เดียวกัน ไม่รวมไฟล์ในคอมมอนส์',
+				},
+				{
+					label: 'ฟ2: ภาพวิบัติหรือว่าง',
+					value: 'ฟ2',
+					code: 'ฟ2',
+					tooltip:
+						'ไฟล์วิบัติ สูญหาย หรือว่าง รวมถึงหน้าคำอธิบายไฟล์คอมมอนส์ที่ไม่มีสารสนเทศเฉพาะโครงการที่จำเป็นต้องเก็บ',
+				},
+				{
+					label: 'ฟ3: สัญญาอนุญาตไม่มีผลใช้ได้',
+					value: 'ฟ3',
+					code: 'ฟ3',
+					tooltip:
+						'สื่อที่จำกัดใช้แบบไม่แสวงหากำไร ห้ามดัดแปลง ใช้เฉพาะวิกิพีเดีย หรือต้องได้รับอนุญาตก่อน และไม่เข้าเกณฑ์การใช้เนื้อหาไม่เสรี',
+				},
+				{
+					label: 'ฟ4: ขาดสารสนเทศสัญญาอนุญาต',
+					value: 'ฟ4',
+					code: 'ฟ4',
+					tooltip: 'ไฟล์ที่ยังขาดข้อมูลจำเป็นสำหรับยืนยันสถานภาพลิขสิทธิ์หลังติดป้ายมาแล้วเจ็ดวัน',
+				},
+				{
+					label: 'ฟ5: สื่อไม่เสรีไม่ได้ใช้',
+					value: 'ฟ5',
+					code: 'ฟ5',
+					tooltip:
+						'สื่อไม่เสรีที่ไม่ใช้ในบทความหลังติดป้ายเกินเจ็ดวัน หรือใช้เฉพาะในบทความที่ถูกลบและไม่น่าจะนำไปใช้ในบทความอื่น',
+				},
+				{
+					label: 'ฟ6: การอ้างใช้ลิขสิทธิ์ของผู้อื่นโดยชอบไม่ถูกต้อง',
+					value: 'ฟ6',
+					code: 'ฟ6',
+					tooltip:
+						'สื่อไม่เสรีที่อ้างใช้โดยชอบอย่างไม่สมเหตุผล อาจลบทันทีหรือหลังพ้นระยะสองหรือเจ็ดวันตามชนิดของปัญหา',
+				},
+				{
+					label: 'ฟ7: มีไฟล์เดียวกันบนวิกิมีเดียคอมมอนส์',
+					value: 'ฟ7',
+					code: 'ฟ7',
+					tooltip:
+						'คอมมอนส์มีสำเนารูปแบบเดียวกันที่คุณภาพไม่ต่ำกว่า ข้อมูลสิทธิและประวัติครบถ้วน ไม่มีป้ายห้ามย้าย และไฟล์ท้องถิ่นไม่ได้รับการป้องกัน',
+				},
+				{
+					label: 'ฟ8: ไฟล์ไม่ใช่สื่อซึ่งไม่เป็นประโยชน์',
+					value: 'ฟ8',
+					code: 'ฟ8',
+					tooltip:
+						'ไฟล์ที่เนื้อหาไม่ใช่ภาพ เสียง หรือภาพเคลื่อนไหว ไม่ได้ใช้ในบทความ และไม่น่ามีประโยชน์เชิงสารานุกรมในอนาคต',
+				},
+			],
+		},
+		{
+			label: 'หมวดหมู่',
+			visible: (self) => !self.isRedirect && self.namespace === 14,
+			list: [
+				{
+					label: 'ม1: หมวดหมู่ว่าง',
+					value: 'ม1',
+					code: 'ม1',
+					tooltip:
+						'หมวดหมู่ที่ไม่มีบทความหรือหน้าใดอยู่เลยอย่างน้อยสี่วัน ไม่รวมหมวดหมู่ที่อาจว่างเป็นบางครั้ง เช่น หมวดหมู่ตรวจสอบ',
+				},
+				{
+					label: 'ม2: เปลี่ยนชื่อหรือรวมหมวดหมู่',
+					value: 'ม2',
+					code: 'ม2',
+					tooltip:
+						'หมวดหมู่ที่เปลี่ยนชื่อหรือรวมเพื่อแก้ภาษา ทำตามหลักการตั้งชื่อ รักษารูปแบบให้สม่ำเสมอ หรือให้สัมพันธ์กับชื่อบทความ',
+					subgroup: {
+						name: 'ม2_rationale',
+						parameter: 'rationale',
+						type: 'input',
+						label: 'เหตุผลในการเปลี่ยนชื่อหรือรวม: ',
+						size: 60,
 					},
 				},
 			],
+		},
+		{
+			label: 'หน้าผู้ใช้',
+			visible: (self) => self.namespace === 2,
+			list: [
+				{
+					label: 'ผ1: เจ้าของหน้าผู้ใช้แจ้งลบ',
+					value: 'ผ1',
+					code: 'ผ1',
+					tooltip:
+						'หน้าผู้ใช้หรือหน้าย่อยส่วนบุคคลที่เจ้าของไม่ต้องการใช้แล้ว ไม่รวมหน้าคุยกับผู้ใช้',
+				},
+				{
+					label: 'ผ2: ผู้ใช้ที่ไม่มีอยู่จริง',
+					value: 'ผ2',
+					code: 'ผ2',
+					tooltip:
+						'หน้าผู้ใช้ของบัญชีที่ไม่มีในระบบ ไม่รวมหน้าเก่าที่เปลี่ยนทางหลังเปลี่ยนชื่อ และชื่อผู้ใช้ที่ประกาศห้ามใช้',
+				},
+				{
+					label: 'ผ3: ระเบียงภาพไม่เสรี',
+					value: 'ผ3',
+					code: 'ผ3',
+					tooltip:
+						'ระเบียงภาพในเนมสเปซผู้ใช้ที่ประกอบด้วยภาพใช้โดยชอบหรือภาพไม่เสรีเป็นส่วนใหญ่หรือทั้งหมด',
+					hideWhenRedirect: true,
+				},
+			],
+		},
+	];
+
+	preprocessParams() {
+		const params = this.params;
+		params.csd = makeArray(params.csd);
+		params.normalizeds = params.csd.map((critValue) => {
+			return this.flatObject[critValue].code;
 		});
+		this.getTemplateParameters();
+		this.getMode();
 
-		form.append({
-			type: 'div',
-			id: 'prior-deletion-count',
-			style: 'font-style: italic',
-		});
-
-		form.append({
-			type: 'div',
-			name: 'work_area',
-			label: 'ไม่สามารถเริ่มต้นโมดูล CSD ได้ โปรดลองอีกครั้ง หรือแจ้งปัญหานี้กับผู้พัฒนา Twinkle',
-		});
-
-		if (getPref('speedySelectionStyle') !== 'radioClick') {
-			form.append({ type: 'submit', className: 'tw-speedy-submit' }); // Renamed in modeChanged
-		}
-
-		this.result = form.render();
-		this.dialog.setContent(this.result);
-		this.dialog.display();
-
-		this.modeChanged(this.result);
-
-		// Check for prior deletions.  Just once, upon init
-		this.priorDeletionCount();
-	}
-
-	priorDeletionCount() {
-		let query = {
-			action: 'query',
-			format: 'json',
-			list: 'logevents',
-			letype: 'delete',
-			leaction: 'delete/delete', // Just pure page deletion, no redirect overwrites or revdel
-			letitle: mw.config.get('wgPageName'),
-			leprop: '', // We're just counting we don't actually care about the entries
-			lelimit: 5, // A little bit goes a long way
+		const preferenceIncludesSelectedCriterion = (preferenceName: string) => {
+			const criteria = getPref(preferenceName);
+			return (
+				Array.isArray(criteria) &&
+				params.normalizeds.some((criterionCode) => criteria.includes(criterionCode))
+			);
 		};
 
-		new Api('กำลังตรวจสอบการลบก่อนหน้า', query).post().then((apiobj) => {
-			let response = apiobj.getResponse();
-			let delCount = response.query.logevents.length;
-			if (delCount) {
-				let message = 'มีการลบก่อนหน้านี้ ' + delCount + ' ครั้ง';
-				if (delCount > 1) {
-					if (response.continue) {
-						message = 'มีการลบก่อนหน้านี้มากกว่า ' + delCount + ' ครั้ง';
-					}
+		if (this.mode.isSysop) {
+			params.promptForSummary = preferenceIncludesSelectedCriterion(
+				'promptForSpeedyDeletionSummary',
+			);
+			params.warnUser =
+				params.warnusertalk && preferenceIncludesSelectedCriterion('warnUserOnSpeedyDelete');
+		} else {
+			params.notifyUser =
+				params.notify &&
+				preferenceIncludesSelectedCriterion('notifyUserOnSpeedyDeletionNomination');
+			params.redactContents = params.csd.some((csd) => {
+				return this.flatObject[csd].redactContents;
+			});
+		}
+		params.watch =
+			preferenceIncludesSelectedCriterion('watchSpeedyPages') && getPref('watchSpeedyExpiry');
+		params.welcomeuser =
+			(params.notifyUser || params.warnUser) &&
+			preferenceIncludesSelectedCriterion('welcomeUserOnSpeedyDeletionNotification');
 
-					// 3+ seems problematic
-					if (delCount >= 3) {
-						$('#prior-deletion-count').css('color', 'red');
-					}
+		this.preprocessParamInputs();
+	}
+
+	deleteRedirects() {
+		let def = $.Deferred();
+		let params = this.params;
+		if (params.deleteRedirects) {
+			let wikipedia_api = new Api('กำลังดึงรายการหน้าที่เปลี่ยนทางมาหน้านี้...', {
+				action: 'query',
+				titles: mw.config.get('wgPageName'),
+				prop: 'redirects',
+				rdlimit: 'max', // 500 is max for normal users, 5000 for bots and sysops
+				format: 'json',
+			});
+			wikipedia_api.setStatusElement(new Morebits.status('กำลังลบการเปลี่ยนทาง'));
+			wikipedia_api.post().then((apiobj) => {
+				let response = apiobj.getResponse();
+
+				let snapshot = response.query.pages[0].redirects || [];
+				let total = snapshot.length;
+				let statusIndicator = apiobj.getStatusElement();
+
+				if (!total) {
+					statusIndicator.status('ไม่พบการเปลี่ยนทางใด ๆ');
+					return;
 				}
 
-				// Provide a link to page logs (CSD templates have one for sysops)
-				let link = Morebits.htmlNode('a', '(logs)');
-				link.setAttribute(
-					'href',
-					mw.util.getUrl('Special:Log', { page: mw.config.get('wgPageName') }),
-				);
-				link.setAttribute('target', '_blank');
+				statusIndicator.status('0%');
 
-				$('#prior-deletion-count').text(message + ' '); // Space before log link
-				$('#prior-deletion-count').append(link);
+				let current = 0;
+				let onsuccess = function (apiobjInner: Api) {
+					let now = Math.round((100 * ++current) / total) + '%';
+					statusIndicator.update(now);
+					apiobjInner.getStatusElement().unlink();
+					if (current >= total) {
+						statusIndicator.info(now + ' (สำเร็จ)');
+						def.resolve();
+						Morebits.wiki.removeCheckpoint();
+					}
+				};
+
+				Morebits.wiki.addCheckpoint();
+
+				snapshot.forEach(function (value) {
+					let title = value.title;
+					let page = new Page(title, 'ลบการเปลี่ยนทางไป "' + title + '"');
+					page.setEditSummary(
+						'[[WP:CSD#ท6|ท6]]: การเปลี่ยนทางไปหน้าที่ถูกลบ "' + Morebits.pageNameNorm + '"',
+					);
+					page.setChangeTags(Twinkle.changeTags);
+					page.deletePage().then(onsuccess);
+				});
+			});
+		} else {
+			def.resolve();
+		}
+
+		// promote Unlink tool
+		let $link, $bigtext;
+		let isFile = mw.config.get('wgNamespaceNumber') === 6;
+		$link = $('<a>', {
+			href: '#',
+			text: 'คลิกที่นี่เพื่อไปยังเครื่องมือยกเลิกการเชื่อมโยง',
+			css: { fontSize: '130%', fontWeight: 'bold' },
+			click: () => {
+				Morebits.wiki.actionCompleted.redirect = null;
+				this.dialog.close();
+				// XXX
+				Twinkle.unlink.makeWindow(
+					isFile
+						? 'ลบการใช้งานหรือการลิงก์มายังไฟล์ ' + Morebits.pageNameNorm + ' ที่เพิ่งถูกลบไป'
+						: 'ลบการลิงก์มายังหน้า ' + Morebits.pageNameNorm + ' ที่เพิ่งถูกลบไป',
+				);
+			},
+		});
+		$bigtext = $('<span>', {
+			text: isFile ? 'หากต้องการลบการใช้งานและการลิงก์ไฟล์เสีย' : 'หากต้องการลบการลิงก์',
+			css: { fontSize: '130%', fontWeight: 'bold' },
+		});
+		Morebits.status.info($bigtext[0], $link[0]);
+
+		return def;
+	}
+
+	parseWikitext(wikitext): JQuery.Promise<string> {
+		let statusIndicator = new Morebits.status('กำลังร่างสรุปการลบ');
+		let api = new Api('กำลังอ่านแม่แบบแจ้งลบ', {
+			action: 'parse',
+			prop: 'text',
+			pst: 'true',
+			text: wikitext,
+			contentmodel: 'wikitext',
+			title: mw.config.get('wgPageName'),
+			disablelimitreport: true,
+			format: 'json',
+		});
+		api.setStatusElement(statusIndicator);
+		return api.post().then((apiobj) => {
+			let reason = decodeURIComponent(
+				$(apiobj.getResponse().parse.text).find('#delete-reason').text(),
+			).replace(/\+/g, ' ');
+			if (!reason) {
+				statusIndicator.warn('ไม่สามารถสรุปจากแม่แบบลบได้');
+			} else {
+				statusIndicator.info('สำเร็จ');
 			}
+			return reason;
 		});
 	}
 
-	getMode() {
-		let form = this.result;
-		return (this.mode = {
-			isSysop: !!form.tag_only && !form.tag_only.checked,
-			isMultiple:
-				form.tag_only && !form.tag_only.checked ? form.delmultiple.checked : form.multiple.checked,
-			isRadioClick: getPref('speedySelectionStyle') === 'radioClick',
+	deletePage() {
+		let params = this.params;
+
+		let thispage = new Page(mw.config.get('wgPageName'), 'กำลังลบหน้า');
+
+		if (params.deleteReason === null) {
+			Morebits.status.error('ต้องการเหตุผลการลบ', 'ผู้ใช้ยกเลิก');
+			return $.Deferred().reject();
+		} else if (!params.deleteReason || !params.deleteReason.trim()) {
+			Morebits.status.error('ต้องการเหตุผลการลบ', 'คุณยังไม่ได้ระบุเหตุผล :( ทำไมล่ะ?');
+			return $.Deferred().reject();
+		}
+
+		thispage.setEditSummary(params.deleteReason);
+		thispage.setChangeTags(Twinkle.changeTags);
+		thispage.setWatchlist(params.watch);
+		return thispage.deletePage().then(() => {
+			thispage.getStatusElement().info('เสร็จสิ้น');
 		});
 	}
 
@@ -329,7 +513,7 @@ export abstract class Speedy extends SpeedyCore {
 
 		$('[name=delete_options]').toggle(this.mode.isSysop);
 		$('[name=tag_options]').toggle(!this.mode.isSysop);
-		$('button.tw-speedy-submit').text(this.mode.isSysop ? 'ลบหน้าดังกล่าว' : 'ติดป้ายหน้าดังกล่าว');
+		$('button.tw-speedy-submit').text(this.mode.isSysop ? 'ลบหน้า' : 'บันทึการแจ้ง');
 
 		let work_area = new Morebits.quickForm.element({
 			type: 'div',
@@ -339,12 +523,12 @@ export abstract class Speedy extends SpeedyCore {
 		if (this.mode.isMultiple && this.mode.isRadioClick) {
 			work_area.append({
 				type: 'div',
-				label: 'เมื่อเลือกเงื่อนไขเสร็จแล้ว ให้คลิก:',
+				label: 'When finished choosing criteria, click:',
 			});
 			work_area.append({
 				type: 'button',
 				name: 'submit-multiple',
-				label: this.mode.isSysop ? 'ลบหน้าดังกล่าว' : 'ติดป้ายหน้าดังกล่าว',
+				label: this.mode.isSysop ? 'ลบหน้า' : 'บันทึกการแจ้ง',
 				event: (event) => {
 					this.evaluate(event);
 					event.stopPropagation();
@@ -368,24 +552,6 @@ export abstract class Speedy extends SpeedyCore {
 				$('input[name="csd.reason_1"]').val(deleteReason);
 			}
 		}
-	}
-
-	appendCriteriaLists(work_area: Morebits.quickForm.element) {
-		this.namespace = mw.config.get('wgNamespaceNumber');
-		this.isRedirect = Morebits.isPageRedirect();
-
-		let inputType = (this.mode.isMultiple ? 'checkbox' : 'radio') as 'radio' | 'checkbox';
-
-		this.criteriaLists.forEach((criteriaList) => {
-			if (criteriaList.visible(this)) {
-				work_area.append({ type: 'header', label: criteriaList.label });
-				work_area.append({
-					type: inputType,
-					name: 'csd',
-					list: this.generateCsdList(criteriaList.list),
-				});
-			}
-		});
 	}
 
 	generateCsdList(list: Array<criterion>) {
@@ -454,7 +620,7 @@ export abstract class Speedy extends SpeedyCore {
 					criterion.subgroup = makeArray(criterion.subgroup).concat({
 						type: 'button',
 						name: 'submit', // ends up being called "csd.submit" so this is OK
-						label: mode.isSysop ? 'ลบหน้าดังกล่าว' : 'ติดป้ายหน้าดังกล่าว',
+						label: mode.isSysop ? 'ลบหน้า' : 'บันทึกการแจ้ง',
 						event: submitSubgroupHandler,
 					});
 					// FIXME: does this do anything?
@@ -466,16 +632,279 @@ export abstract class Speedy extends SpeedyCore {
 			.filter((e) => e); // don't include items that have been made null
 	}
 
-	makeFlatObject() {
-		this.flatObject = {};
-		this.criteriaLists.forEach((criteria) => {
-			criteria.list.forEach((criterion) => {
-				this.flatObject[criterion.value] = criterion;
+	makeWindow() {
+		this.dialog = new Dialog(getPref('speedyWindowWidth'), getPref('speedyWindowHeight'));
+		this.dialog.setTitle(this.windowTitle);
+		this.dialog.setFooterLinks(this.footerlinks);
+
+		this.hasCSD = !!$('#delete-reason').length;
+		this.makeFlatObject();
+
+		let form = new Morebits.quickForm(
+			(e) => this.evaluate(e),
+			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null,
+		);
+		this.form = form;
+
+		if (Morebits.userIsSysop) {
+			form.append({
+				type: 'checkbox',
+				list: [
+					{
+						label: 'ติดป้ายแจ้งลบหน้านี้ แต่ไม่ลบตอนนี้',
+						value: 'tag_only',
+						name: 'tag_only',
+						tooltip: 'กรณีต้องการติดป้ายแจ้งลบหน้านี้ แต่ไม่ลบตอนนี้',
+						checked: !(this.hasCSD || getPref('deleteSysopDefaultToDelete')),
+						event: (event) => {
+							let cForm = event.target.form!;
+							let cChecked = event.target.checked;
+							// enable talk page checkbox
+							if (cForm.deleteTalkPage) {
+								cForm.deleteTalkPage.checked = !cChecked && getPref('deleteTalkPageOnDelete');
+							}
+							// enable redirects checkbox
+							cForm.deleteRedirects.checked = !cChecked;
+							// enable delete multiple
+							cForm.delmultiple.checked = false;
+							// enable notify checkbox
+							cForm.notify.checked = cChecked;
+							// enable deletion notification checkbox
+							cForm.warnusertalk.checked = !cChecked && !this.hasCSD;
+							// enable multiple
+							cForm.multiple.checked = false;
+							// enable requesting creation protection
+							cForm.requestsalt.checked = false;
+
+							this.modeChanged(cForm);
+
+							event.stopPropagation();
+						},
+					},
+				],
 			});
+
+			let deleteOptions = form.append({
+				type: 'div',
+				name: 'delete_options',
+			});
+			deleteOptions.append({
+				type: 'header',
+				label: 'ตัวเลือกการลบหน้า',
+			});
+			if (
+				mw.config.get('wgNamespaceNumber') % 2 === 0 &&
+				(mw.config.get('wgNamespaceNumber') !== 2 || /\//.test(mw.config.get('wgTitle')))
+			) {
+				// hide option for user pages, to avoid accidentally deleting user talk page
+				deleteOptions.append({
+					type: 'checkbox',
+					list: [
+						{
+							label: 'ลบหน้าคุยด้วย',
+							value: 'deleteTalkPage',
+							name: 'deleteTalkPage',
+							tooltip:
+								'ลบหน้าคุยด้วย กรณีเลือกเป็น ฟ7 (ไฟล์ย้ายไปคอมอนส์แล้ว) จะไม่สนใจตัวเลือกนี้และเก็บหน้าคุยของไฟล์ไว้',
+							checked: getPref('deleteTalkPageOnDelete'),
+							event: (event) => event.stopPropagation(),
+						},
+					],
+				});
+			}
+			deleteOptions.append({
+				type: 'checkbox',
+				list: [
+					{
+						label: 'ลบหน้าเปลี่ยนทางมาที่นี่ทั้งหมดด้วย',
+						value: 'deleteRedirects',
+						name: 'deleteRedirects',
+						tooltip:
+							'ลบหน้าเปลี่ยนทางมาที่นี่ทั้งหมดด้วย หลีกเลี่ยงตัวเลือกนี้สำหรับการลบแบบกระบวนการ (เช่น การย้าย/ผสาน)',
+						checked: getPref('deleteRedirectsOnDelete'),
+						event: (event) => event.stopPropagation(),
+					},
+					{
+						label: 'ลบด้วยหลายเหตุผลพร้อมกัน',
+						value: 'delmultiple',
+						name: 'delmultiple',
+						tooltip: 'เลือกตัวเลือกนี้เพื่อเลือกหลายเหตุผลพร้อมกัน',
+						event: (event) => {
+							this.modeChanged(event.target.form);
+							event.stopPropagation();
+						},
+					},
+					{
+						label: 'แจ้งผู้สร้างหน้าเกี่ยวกับการลบหน้า',
+						value: 'warnusertalk',
+						name: 'warnusertalk',
+						tooltip:
+							'จะวางแม่แบบแจ้งเตือนบนหน้าคุยของผู้สร้าง ก็ต่อเมื่อคุณเปิดการแจ้งเตือนในการตั้งค่าของ Twinkle ' +
+							'สำหรับเกณฑ์ที่คุณเลือก และกล่องนี้ถูกเลือก และอาจส่งสารต้อนรับก่อนด้วยหากยังไม่เคยได้รับ',
+						checked: !this.hasCSD,
+						event: (event) => event.stopPropagation(),
+					},
+				],
+			});
+		}
+
+		let tagOptions = form.append({
+			type: 'div',
+			name: 'tag_options',
+		});
+
+		if (Morebits.userIsSysop) {
+			tagOptions.append({
+				type: 'header',
+				label: 'ตัวเลือกที่เกี่ยวกับการติดป้ายแจ้งลบ',
+			});
+		}
+
+		tagOptions.append({
+			type: 'checkbox',
+			list: [
+				{
+					label: 'แจ้งผู้สร้างหน้าหากเป็นไปได้',
+					value: 'notify',
+					name: 'notify',
+					tooltip:
+						'จะวางแม่แบบแจ้งเตือนบนหน้าคุยของผู้สร้าง ก็ต่อเมื่อคุณเปิดการแจ้งเตือนในการตั้งค่าของ Twinkle ' +
+						'สำหรับเกณฑ์ที่คุณเลือก และกล่องนี้ถูกเลือก และอาจส่งสารต้อนรับก่อนด้วยหากยังไม่เคยได้รับ',
+					checked: !Morebits.userIsSysop || !(this.hasCSD || getPref('deleteSysopDefaultToDelete')),
+					event: (event) => event.stopPropagation(),
+				},
+				{
+					label: 'แจ้งป้องกันการสร้างหน้านี้ด้วย',
+					value: 'requestsalt',
+					name: 'requestsalt',
+					tooltip:
+						'เมื่อเลือก แม่แบบแจ้งลบจะถูกเสริมด้วยแม่แบบ {{salt}} ที่ขอให้ผู้ดูแลที่ลบหน้าทำการป้องกันการสร้างหน้า โปรดเลือกเฉพาะหากหน้านี้ถูกสร้างขึ้นใหม่หลายครั้ง',
+					event: (event) => event.stopPropagation(),
+				},
+				{
+					label: 'เลือกหลายเกณฑ์พร้อมกัน',
+					value: 'multiple',
+					name: 'multiple',
+					tooltip:
+						'เมื่อเลือก คุณสามารถเลือกหลายเกณฑ์ที่ใช้กับหน้านี้ได้ เช่น ท8 และ บ5 สำหรับองค์กรที่ขาดความสำคัญและเขียนเหมือนโฆษณา',
+					event: (event) => {
+						this.modeChanged(event.target.form);
+						event.stopPropagation();
+					},
+				},
+			],
+		});
+
+		form.append({
+			type: 'div',
+			id: 'prior-deletion-count',
+			style: 'font-style: italic',
+		});
+
+		form.append({
+			type: 'div',
+			name: 'work_area',
+			label: 'ไม่สามารถเริ่มต้นโมดูลการลบทันทีได้ โปรดลองอีกครั้ง หรือแจ้งปัญหาให้ทีมพัฒนา Twinkle',
+		});
+
+		if (getPref('speedySelectionStyle') !== 'radioClick') {
+			form.append({ type: 'submit', className: 'tw-speedy-submit' }); // Renamed in modeChanged
+		}
+
+		this.result = form.render();
+		this.dialog.setContent(this.result);
+		this.dialog.display();
+
+		this.modeChanged(this.result);
+
+		// Check for prior deletions.  Just once, upon init
+		this.priorDeletionCount();
+	}
+
+	priorDeletionCount() {
+		let query = {
+			action: 'query',
+			format: 'json',
+			list: 'logevents',
+			letype: 'delete',
+			leaction: 'delete/delete', // Just pure page deletion, no redirect overwrites or revdel
+			letitle: mw.config.get('wgPageName'),
+			leprop: '', // We're just counting we don't actually care about the entries
+			lelimit: 5, // A little bit goes a long way
+		};
+
+		new Api('Checking for past deletions', query).post().then((apiobj) => {
+			let response = apiobj.getResponse();
+			let delCount = response.query.logevents.length;
+			if (delCount) {
+				let message = `หน้านี้เคยถูกลบ${response.continue ? 'มากกว่า' : ''} ${delCount} ครั้ง`;
+
+				// 3+ seems problematic
+				if (delCount >= 3) {
+					$('#prior-deletion-count').css('color', 'red');
+				}
+
+				// Provide a link to page logs (CSD templates have one for sysops)
+				let link = Morebits.htmlNode('a', '(ปูม)');
+				link.setAttribute(
+					'href',
+					mw.util.getUrl('Special:Log', { page: mw.config.get('wgPageName') }),
+				);
+				link.setAttribute('target', '_blank');
+
+				$('#prior-deletion-count').text(message + ' '); // Space before log link
+				$('#prior-deletion-count').append(link);
+			}
 		});
 	}
 
-	// UI creation ends here!
+	checkPage() {
+		let pageobj = new Page(mw.config.get('wgPageName'), 'กำลังติดป้ายแจ้งลบ');
+		pageobj.setChangeTags(Twinkle.changeTags);
+		return pageobj.load().then(() => {
+			let statelem = pageobj.getStatusElement();
+
+			if (!pageobj.exists()) {
+				statelem.error('ไม่พบหน้านี้ในระบบ อาจจะถูกลบไปแล้ว');
+				return $.Deferred().reject();
+			}
+
+			let text = pageobj.getPageText();
+
+			statelem.status('กำลังตรวจสอบว่ามีแม่แบบลบแล้วหรือไม่...');
+
+			// check for existing speedy deletion tags
+			let tag =
+				/(?:\{\{\s*(db|ลบ|ลบ-.*?|ลบ [ก-๛][1-9][0-9]?|delete|db-.*?|speedy deletion-.*?)(?:\s*\||\s*\}\}))/.exec(
+					text,
+				);
+			// This won't make use of the db-multiple template but it probably should
+			if (
+				tag &&
+				!confirm('หน้านี้มีแม่แบบแจ้งลบ {{' + tag[1] + '}} อยู่แล้ว ต้องการเพิ่มอีกอันหรือไม่')
+			) {
+				return $.Deferred().reject();
+			}
+
+			// check for existing XFD tags
+			let xfd =
+				/\{\{((?:article for deletion|proposed deletion|prod blp|template for discussion)\/dated|[cfm]fd\b)/i.exec(
+					text,
+				) || /#invoke:(RfD)/.exec(text);
+			if (
+				xfd &&
+				!confirm(
+					'The deletion-related template {{' +
+						xfd[1] +
+						'}} was found on the page. Do you still want to add a CSD template?',
+				)
+			) {
+				return $.Deferred().reject();
+			}
+
+			return pageobj;
+		});
+	}
 
 	evaluate(e: QuickFormEvent | FormSubmitEvent) {
 		if (e.target.type === 'checkbox' || e.target.type === 'text' || e.target.type === 'select') {
@@ -483,7 +912,7 @@ export abstract class Speedy extends SpeedyCore {
 		}
 		this.params = Morebits.quickForm.getInputData(this.result);
 		if (!this.params.csd || !this.params.csd.length) {
-			return alert('โปรดเลือกเงื่อนไข!');
+			return alert('โปรดเลือกเกณฑ์การลบก่อน!');
 		}
 		this.preprocessParams();
 		let validationMessage = this.validateInputs();
@@ -513,725 +942,10 @@ export abstract class Speedy extends SpeedyCore {
 		}
 
 		tm.execute().then(() => {
-			Morebits.status.actionCompleted(
-				this.mode.isSysop ? 'การลบเสร็จสมบูรณ์' : 'การติดป้ายเสร็จสมบูรณ์',
-			);
+			Morebits.status.actionCompleted(this.mode.isSysop ? 'ลบสำเร็จ' : 'ติดแม่แบบลบสำเร็จ');
 			setTimeout(() => {
 				window.location.href = mw.util.getUrl(Morebits.pageNameNorm);
 			}, 50000);
 		});
-	}
-
-	preprocessParams() {
-		let params = this.params;
-		params.csd = makeArray(params.csd);
-		params.normalizeds = params.csd.map((critValue) => {
-			return this.flatObject[critValue].code;
-		});
-		this.getTemplateParameters();
-		this.getMode(); // likely not needed
-
-		if (this.mode.isSysop) {
-			params.promptForSummary = params.normalizeds.some((norm) => {
-				return getPref('promptForSpeedyDeletionSummary').indexOf(norm) !== -1;
-			});
-			params.warnUser =
-				params.warnusertalk &&
-				params.normalizeds.some((norm, index) => {
-					return (
-						getPref('warnUserOnSpeedyDelete').indexOf(norm) !== -1 &&
-						!(norm === 'g4' && params.values[index] !== 'copypaste')
-					);
-				});
-		} else {
-			params.notifyUser =
-				params.notify &&
-				params.normalizeds.some(function (norm, index) {
-					return (
-						getPref('notifyUserOnSpeedyDeletionNomination').indexOf(norm) !== -1 &&
-						!(norm === 'g4' && params.csd[index] !== 'copypaste')
-					);
-				});
-			params.redactContents = params.csd.some((csd) => {
-				return this.flatObject[csd].redactContents;
-			});
-		}
-		params.watch = params.normalizeds.some(function (norm) {
-			return getPref('watchSpeedyPages').indexOf(norm) !== -1 && getPref('watchSpeedyExpiry');
-		});
-		params.welcomeuser =
-			(params.notifyUser || params.warnUser) &&
-			params.normalizeds.some((norm) => {
-				return getPref('welcomeUserOnSpeedyDeletionNotification').indexOf(norm) !== -1;
-			});
-
-		this.preprocessParamInputs();
-	}
-
-	preprocessParamInputs() {}
-
-	/**
-	 * Creates this.params.templateParams, an array of objects each object
-	 * representing the template parameters for a criterion.
-	 */
-	getTemplateParameters() {
-		this.params.templateParams = new Array(this.params.csd.length) as Array<Record<string, string>>;
-
-		this.params.csd.forEach((value, idx) => {
-			let crit = this.flatObject[value];
-			let params: Record<string, string> = {};
-			makeArray(crit.subgroup).forEach((subgroup) => {
-				if (subgroup.parameter && this.params[subgroup.name]) {
-					params[subgroup.parameter] = this.params[subgroup.name];
-				}
-			});
-			this.params.templateParams[idx] = params;
-		});
-	}
-
-	/**
-	 * Gets wikitext of the tag to be added to the page being nominated.
-	 * @returns {string}
-	 */
-	getTaggingCode() {
-		let params = this.params;
-		let code = '';
-
-		if (params.normalizeds.length > 1) {
-			code = '{{db-multiple';
-			params.normalizeds.forEach((norm, idx) => {
-				code += '|' + norm.toUpperCase();
-				obj_entries(params.templateParams[idx]).forEach(([param, value]) => {
-					// skip numeric parameters - {{db-multiple}} doesn't understand them
-					if (!parseInt(param, 10)) {
-						code += '|' + param + '=' + value;
-					}
-				});
-			});
-			code += '}}';
-		} else {
-			code = '{{db-' + params.csd[0];
-			obj_entries(params.templateParams[0]).forEach(([param, value]) => {
-				code += '|' + param + '=' + value;
-			});
-			if (params.notifyUser) {
-				code += '|help=off';
-			}
-			code += '}}';
-		}
-
-		return code;
-	}
-
-	/**
-	 * Creates this.params.utparams, object of parameters for the user notification
-	 * template
-	 */
-	getUserTalkParameters() {
-		let utparams: Record<string, string> = {};
-		this.params.csd.forEach((csd) => {
-			let subgroups = makeArray(this.flatObject[csd].subgroup);
-			subgroups.forEach((subgroup, idx) => {
-				if (subgroup.utparam && this.params[subgroup.name]) {
-					// For {{db-csd-notice-custom}} (single criterion selected)
-					utparams['key' + (idx + 1)] = subgroup.utparam;
-					utparams['value' + (idx + 1)] = this.params[subgroup.name];
-					// For {{db-notice-multiple}} (multiple criterion selected)
-					utparams[subgroup.utparam] = this.params[subgroup.name];
-				}
-			});
-		});
-		this.params.utparams = utparams;
-	}
-
-	getUserNotificationText() {
-		let params = this.params;
-		let notifytext = '';
-		// special cases: "db" and "db-multiple"
-		if (params.normalizeds.length > 1) {
-			notifytext =
-				'\n{{subst:db-' +
-				(params.warnUser ? 'deleted' : 'notice') +
-				'-multiple|1=' +
-				Morebits.pageNameNorm;
-			params.normalizeds.forEach(function (norm, idx) {
-				notifytext += '|' + (idx + 2) + '=' + norm.toUpperCase();
-			});
-		} else if (params.normalizeds[0] === 'db') {
-			notifytext =
-				'\n{{subst:db-reason-' +
-				(params.warnUser ? 'deleted' : 'notice') +
-				'|1=' +
-				Morebits.pageNameNorm;
-		} else {
-			notifytext = '\n{{subst:db-csd-' + (params.warnUser ? 'deleted' : 'notice') + '-custom|1=';
-			// Get rid of this by tweaking the template!
-			if (params.csd[0] === 'copypaste') {
-				notifytext += params.templateParams[0].sourcepage;
-			} else {
-				notifytext += Morebits.pageNameNorm;
-			}
-			notifytext += '|2=' + params.csd[0];
-		}
-
-		this.getUserTalkParameters();
-		obj_entries(params.utparams).forEach(([key, value]) => {
-			notifytext += '|' + key + '=' + value;
-		});
-		notifytext += (params.welcomeuser ? '' : '|nowelcome=yes') + '}} ~~~~';
-		return notifytext;
-	}
-
-	fetchCreatorInfo() {
-		// No user notification being made, no need to fetch creator
-		if (!this.params.notifyUser && !this.params.warnUser) {
-			return $.Deferred().resolve();
-		}
-		let thispage = new Page(Morebits.pageNameNorm, 'Finding page creator');
-		return thispage.lookupCreation().then(() => {
-			this.params.initialContrib = thispage.getCreator();
-			thispage.getStatusElement().info('Found ' + thispage.getCreator());
-		});
-	}
-
-	patrolPage() {
-		if (getPref('markSpeedyPagesAsPatrolled')) {
-			new Page(Morebits.pageNameNorm).triage();
-		}
-		return $.Deferred().resolve();
-	}
-
-	checkPage() {
-		let pageobj = new Page(mw.config.get('wgPageName'), 'Tagging page');
-		pageobj.setChangeTags(Twinkle.changeTags);
-		return pageobj.load().then(() => {
-			let statelem = pageobj.getStatusElement();
-
-			if (!pageobj.exists()) {
-				statelem.error("It seems that the page doesn't exist; perhaps it has already been deleted");
-				return $.Deferred().reject();
-			}
-
-			let text = pageobj.getPageText();
-
-			statelem.status('Checking for tags on the page...');
-
-			// check for existing speedy deletion tags
-			let tag = /(?:\{\{\s*(db|delete|db-.*?|speedy deletion-.*?)(?:\s*\||\s*\}\}))/.exec(text);
-			// This won't make use of the db-multiple template but it probably should
-			if (
-				tag &&
-				!confirm(
-					'The page already has the CSD-related template {{' +
-						tag[1] +
-						'}} on it.  Do you want to add another CSD template?',
-				)
-			) {
-				return $.Deferred().reject();
-			}
-
-			// check for existing XFD tags
-			let xfd =
-				/\{\{((?:article for deletion|proposed deletion|prod blp|template for discussion)\/dated|[cfm]fd\b)/i.exec(
-					text,
-				) || /#invoke:(RfD)/.exec(text);
-			if (
-				xfd &&
-				!confirm(
-					'The deletion-related template {{' +
-						xfd[1] +
-						'}} was found on the page. Do you still want to add a CSD template?',
-				)
-			) {
-				return $.Deferred().reject();
-			}
-
-			return pageobj;
-		});
-	}
-
-	tagPage(pageobj: Page) {
-		let params = this.params;
-		let text = pageobj.getPageText();
-		let code = this.getTaggingCode();
-
-		// Set the correct value for |ts= parameter in {{db-g13}}
-		if (params.normalizeds.indexOf('g13') !== -1) {
-			code = code.replace('$TIMESTAMP', pageobj.getLastEditTime());
-		}
-		if (params.requestsalt) {
-			code = '{{salt}}\n' + code;
-		}
-
-		// Post on talk if it is not possible to tag
-		if (
-			!pageobj.canEdit() ||
-			['wikitext', 'Scribunto', 'javascript', 'css', 'sanitized-css'].indexOf(
-				pageobj.getContentModel(),
-			) === -1
-		) {
-			// Attempt to place on talk page
-			let talkName = new mw.Title(pageobj.getPageName()).getTalkPage().toText();
-
-			if (talkName === pageobj.getPageName()) {
-				pageobj
-					.getStatusElement()
-					.error('Page protected and nowhere to add an edit request, aborting');
-				return $.Deferred().reject();
-			}
-
-			pageobj.getStatusElement().warn('Unable to edit page, placing tag on talk page');
-
-			let talk_page = new Page(talkName, 'Automatically placing tag on talk page');
-			talk_page.setNewSectionTitle(pageobj.getPageName() + ' nominated for CSD, request deletion');
-			talk_page.setNewSectionText(
-				code + '\n\nI was unable to tag ' + pageobj.getPageName() + ' so please delete it. ~~~~',
-			);
-			talk_page.setCreateOption('recreate');
-			talk_page.setFollowRedirect(true);
-			talk_page.setWatchlist(params.watch);
-			talk_page.setChangeTags(Twinkle.changeTags);
-			return talk_page.newSection();
-		}
-
-		// Remove tags that become superfluous with this action
-		text = text.replace(/\{\{\s*([Uu]serspace draft)\s*(\|(?:\{\{[^{}]*\}\}|[^{}])*)?\}\}\s*/g, '');
-		if (mw.config.get('wgNamespaceNumber') === 6) {
-			// remove "move to Commons" tag - deletion-tagged files cannot be moved to Commons
-			text = text.replace(
-				/\{\{(mtc|(copy |move )?to ?commons|move to wikimedia commons|copy to wikimedia commons)[^}]*\}\}/gi,
-				'',
-			);
-		}
-
-		// Wrap SD template in noinclude tags if we are in template space.
-		// Won't work with userboxes in userspace, or any other transcluded page outside template space
-		if (mw.config.get('wgNamespaceNumber') === 10) {
-			// Template:
-			code = '<noinclude>' + code + '</noinclude>';
-		}
-
-		if (mw.config.get('wgPageContentModel') === 'Scribunto') {
-			// Scribunto isn't parsed like wikitext, so CSD templates on modules need special handling to work
-			let equals = '';
-			while (code.indexOf(']' + equals + ']') !== -1) {
-				equals += '=';
-			}
-			code =
-				"require('Module:Module wikitext')._addText([" + equals + '[' + code + ']' + equals + ']);';
-		} else if (
-			['javascript', 'css', 'sanitized-css'].indexOf(mw.config.get('wgPageContentModel')) !== -1
-		) {
-			// Likewise for JS/CSS pages
-			code = '/* ' + code + ' */';
-		}
-
-		// Generate edit summary for edit
-		let editsummary;
-		if (params.normalizeds[0] === 'db') {
-			editsummary =
-				'Requesting [[WP:CSD|speedy deletion]] with rationale "' +
-				params.templateParams[0]['1'] +
-				'".';
-		} else {
-			let criteriaText = params.normalizeds
-				.map((norm) => {
-					return '[[WP:CSD#' + norm.toUpperCase() + '|CSD ' + norm.toUpperCase() + ']]';
-				})
-				.join(', ');
-			editsummary = 'Requesting speedy deletion (' + criteriaText + ').';
-		}
-
-		// Blank attack pages
-		if (params.redactContents) {
-			text = code;
-		} else {
-			text = this.insertTagText(code, text);
-		}
-
-		pageobj.setPageText(text);
-		pageobj.setEditSummary(editsummary);
-		pageobj.setWatchlist(params.watch);
-		return pageobj.save();
-	}
-
-	/**
-	 * Insert tag text on to the page.
-	 * If they need to go at a location other than the very top of the page,
-	 * override this function.
-	 * @param code
-	 * @param pageText
-	 */
-	insertTagText(code, pageText) {
-		return code + '\n' + pageText;
-	}
-
-	noteToCreator() {
-		let params = this.params;
-		let initialContrib = params.initialContrib;
-
-		// User notification not chosen
-		if (!initialContrib) {
-			return $.Deferred().resolve();
-
-			// disallow notifying yourself
-		} else if (initialContrib === mw.config.get('wgUserName')) {
-			Morebits.status.warn(
-				'Note',
-				'You (' + initialContrib + ') created this page; skipping user notification',
-			);
-			initialContrib = null;
-
-			// don't notify users when their user talk page is nominated/deleted
-		} else if (
-			initialContrib === mw.config.get('wgTitle') &&
-			mw.config.get('wgNamespaceNumber') === 3
-		) {
-			Morebits.status.warn(
-				'Note',
-				'Notifying initial contributor: this user created their own user talk page; skipping notification',
-			);
-			initialContrib = null;
-
-			// quick hack to prevent excessive unwanted notifications, per request. Should actually be configurable on recipient page...
-		} else if (
-			(initialContrib === 'Cyberbot I' || initialContrib === 'SoxBot') &&
-			params.normalizeds[0] === 'f2'
-		) {
-			Morebits.status.warn(
-				'Note',
-				'Notifying initial contributor: page created procedurally by bot; skipping notification',
-			);
-			initialContrib = null;
-
-			// Check for already existing tags
-		} else if (
-			this.hasCSD &&
-			params.warnUser &&
-			!confirm(
-				'The page is has a deletion-related tag, and thus the creator has likely been notified.  Do you want to notify them for this deletion as well?',
-			)
-		) {
-			Morebits.status.info(
-				'Notifying initial contributor',
-				'canceled by user; skipping notification.',
-			);
-			initialContrib = null;
-		}
-
-		if (!initialContrib) {
-			params.initialContrib = null;
-			return $.Deferred().resolve();
-		}
-
-		let usertalkpage = new Page(
-			'User talk:' + initialContrib,
-			'Notifying initial contributor (' + initialContrib + ')',
-		);
-
-		let editsummary = 'Notification: speedy deletion' + (params.warnUser ? '' : ' nomination');
-		if (!params.redactContents) {
-			// no article name in summary for attack page taggings
-			editsummary += ' of [[:' + Morebits.pageNameNorm + ']].';
-		} else {
-			editsummary += ' of an attack page.';
-		}
-
-		usertalkpage.setAppendText(this.getUserNotificationText());
-		usertalkpage.setEditSummary(editsummary);
-		usertalkpage.setChangeTags(Twinkle.changeTags);
-		usertalkpage.setCreateOption('recreate');
-		usertalkpage.setFollowRedirect(true, false);
-		return usertalkpage.append();
-	}
-
-	parseWikitext(wikitext): JQuery.Promise<string> {
-		let statusIndicator = new Morebits.status('Building deletion summary');
-		let api = new Api('Parsing deletion template', {
-			action: 'parse',
-			prop: 'text',
-			pst: 'true',
-			text: wikitext,
-			contentmodel: 'wikitext',
-			title: mw.config.get('wgPageName'),
-			disablelimitreport: true,
-			format: 'json',
-		});
-		api.setStatusElement(statusIndicator);
-		return api.post().then((apiobj) => {
-			let reason = decodeURIComponent(
-				$(apiobj.getResponse().parse.text).find('#delete-reason').text(),
-			).replace(/\+/g, ' ');
-			if (!reason) {
-				statusIndicator.warn('Unable to generate summary from deletion template');
-			} else {
-				statusIndicator.info('complete');
-			}
-			return reason;
-		});
-	}
-
-	parseDeletionReason() {
-		let params = this.params;
-		if (!params.normalizeds.length && params.normalizeds[0] === 'db') {
-			params.deleteReason = prompt(
-				'Enter the deletion summary to use, which will be entered into the deletion log:',
-				'',
-			);
-			return $.Deferred().resolve();
-		} else {
-			let code = this.getTaggingCode();
-			return this.parseWikitext(code).then((reason) => {
-				if (params.promptForSummary) {
-					reason = prompt(
-						'Enter the deletion summary to use, or press OK to accept the automatically generated one.',
-						reason,
-					);
-				}
-				params.deleteReason = reason;
-			});
-		}
-	}
-
-	deletePage() {
-		let params = this.params;
-
-		let thispage = new Page(mw.config.get('wgPageName'), 'Deleting page');
-
-		if (params.deleteReason === null) {
-			Morebits.status.error('Asking for reason', 'User cancelled');
-			return $.Deferred().reject();
-		} else if (!params.deleteReason || !params.deleteReason.trim()) {
-			Morebits.status.error(
-				'Asking for reason',
-				"you didn't give one.  I don't know... what with admins and their apathetic antics... I give up...",
-			);
-			return $.Deferred().reject();
-		}
-
-		thispage.setEditSummary(params.deleteReason);
-		thispage.setChangeTags(Twinkle.changeTags);
-		thispage.setWatchlist(params.watch);
-		return thispage.deletePage().then(() => {
-			thispage.getStatusElement().info('done');
-		});
-	}
-
-	deleteTalk() {
-		let params = this.params;
-		if (params.deleteTalkPage && document.getElementById('ca-talk').className !== 'new') {
-			let talkpage = new Page(
-				new mw.Title(Morebits.pageNameNorm).getTalkPage().toText(),
-				'Deleting talk page',
-			);
-			talkpage.setEditSummary(
-				'[[WP:CSD#G8|G8]]: Talk page of deleted page "' + Morebits.pageNameNorm + '"',
-			);
-			talkpage.setChangeTags(Twinkle.changeTags);
-			return talkpage.deletePage().then(() => {
-				talkpage.getStatusElement().info('done');
-			});
-		} else {
-			return $.Deferred().resolve();
-		}
-	}
-
-	deleteRedirects() {
-		let def = $.Deferred();
-		let params = this.params;
-		if (params.deleteRedirects) {
-			let wikipedia_api = new Api('getting list of redirects...', {
-				action: 'query',
-				titles: mw.config.get('wgPageName'),
-				prop: 'redirects',
-				rdlimit: 'max', // 500 is max for normal users, 5000 for bots and sysops
-				format: 'json',
-			});
-			wikipedia_api.setStatusElement(new Morebits.status('Deleting redirects'));
-			wikipedia_api.post().then((apiobj) => {
-				let response = apiobj.getResponse();
-
-				let snapshot = response.query.pages[0].redirects || [];
-				let total = snapshot.length;
-				let statusIndicator = apiobj.getStatusElement();
-
-				if (!total) {
-					statusIndicator.status('no redirects found');
-					return;
-				}
-
-				statusIndicator.status('0%');
-
-				let current = 0;
-				let onsuccess = function (apiobjInner: Api) {
-					let now = Math.round((100 * ++current) / total) + '%';
-					statusIndicator.update(now);
-					apiobjInner.getStatusElement().unlink();
-					if (current >= total) {
-						statusIndicator.info(now + ' (completed)');
-						def.resolve();
-						Morebits.wiki.removeCheckpoint();
-					}
-				};
-
-				Morebits.wiki.addCheckpoint();
-
-				snapshot.forEach(function (value) {
-					let title = value.title;
-					let page = new Page(title, 'Deleting redirect "' + title + '"');
-					page.setEditSummary(
-						'[[WP:CSD#G8|G8]]: Redirect to deleted page "' + Morebits.pageNameNorm + '"',
-					);
-					page.setChangeTags(Twinkle.changeTags);
-					page.deletePage().then(onsuccess);
-				});
-			});
-		} else {
-			def.resolve();
-		}
-
-		// promote Unlink tool
-		let $link, $bigtext;
-		let isFile = mw.config.get('wgNamespaceNumber') === 6;
-		$link = $('<a>', {
-			href: '#',
-			text: 'click here to go to the Unlink tool',
-			css: { fontSize: '130%', fontWeight: 'bold' },
-			click: () => {
-				Morebits.wiki.actionCompleted.redirect = null;
-				this.dialog.close();
-				// XXX
-				Twinkle.unlink.makeWindow(
-					isFile
-						? 'Removing usages of and/or links to deleted file ' + Morebits.pageNameNorm
-						: 'Removing links to deleted page ' + Morebits.pageNameNorm,
-				);
-			},
-		});
-		$bigtext = $('<span>', {
-			text: isFile
-				? 'To orphan backlinks and remove instances of file usage'
-				: 'To orphan backlinks',
-			css: { fontSize: '130%', fontWeight: 'bold' },
-		});
-		Morebits.status.info($bigtext[0], $link[0]);
-
-		return def;
-	}
-
-	addToLog() {
-		let params = this.params;
-		let shouldLog =
-			getPref('logSpeedyNominations') &&
-			params.normalizeds.some(function (norm) {
-				return getPref('noLogOnSpeedyNomination').indexOf(norm) === -1;
-			});
-		if (!shouldLog) {
-			return $.Deferred().resolve();
-		}
-
-		let usl = new Morebits.userspaceLogger(getPref('speedyLogPageName'));
-		usl.initialText =
-			"This is a log of all [[WP:CSD|speedy deletion]] nominations made by this user using [[WP:TW|Twinkle]]'s CSD module.\n\n" +
-			'If you no longer wish to keep this log, you can turn it off using the [[Wikipedia:Twinkle/Preferences|preferences panel]], and ' +
-			'nominate this page for speedy deletion under [[WP:CSD#U1|CSD U1]].' +
-			(Morebits.userIsSysop
-				? '\n\nThis log does not track outright speedy deletions made using Twinkle.'
-				: '');
-
-		let extraInfo = '';
-
-		// If a logged file is deleted but exists on commons, the wikilink will be blue, so provide a link to the log
-		let fileLogLink =
-			mw.config.get('wgNamespaceNumber') === 6
-				? ' ([{{fullurl:Special:Log|page=' +
-					mw.util.wikiUrlencode(mw.config.get('wgPageName')) +
-					'}} log])'
-				: '';
-
-		let editsummary = 'Logging speedy deletion nomination';
-
-		let appendText = '# [[:' + Morebits.pageNameNorm;
-
-		if (!params.redactContents) {
-			// no article name in log for attack page taggings
-			appendText += ']]' + fileLogLink + ': ';
-			editsummary += ' of [[:' + Morebits.pageNameNorm + ']].';
-		} else {
-			appendText += '|This]] attack page' + fileLogLink + ': ';
-			editsummary += ' of an attack page.';
-		}
-
-		if (params.normalizeds.length > 1) {
-			let criteriaText = params.normalizeds
-				.map((norm) => {
-					return '[[WP:CSD#' + norm.toUpperCase() + '|' + norm.toUpperCase() + ']]';
-				})
-				.join(', ');
-			appendText += 'multiple criteria (' + criteriaText + ')';
-		} else if (params.normalizeds[0] === 'db') {
-			appendText += '{{tl|db-reason}}';
-		} else {
-			appendText +=
-				'[[WP:CSD#' +
-				params.normalizeds[0].toUpperCase() +
-				'|CSD ' +
-				params.normalizeds[0].toUpperCase() +
-				']] ({{tl|db-' +
-				params.csd[0] +
-				'}})';
-		}
-
-		// Treat custom rationale individually
-		if (params.normalizeds[0] === 'db') {
-			extraInfo += ` {Custom rationale: ${params.templateParams[0]['1']}}`;
-		} else {
-			params.csd.forEach((crit: string) => {
-				let critObject = this.flatObject[crit];
-				let critCode = critObject.code.toUpperCase();
-				let subgroups = makeArray(critObject.subgroup);
-				subgroups.forEach((subgroup) => {
-					let value = params[subgroup.name];
-					if (!value || !subgroup.parameter) {
-						// no value was entered, or it's a hidden field or something
-						return;
-					}
-					if (subgroup.log) {
-						value = Morebits.string.safeReplace(subgroup.log, /\$1/g, value);
-					} else if (subgroup.log === null) {
-						// logging is disabled
-						return;
-					}
-					extraInfo += ` {${critCode} ${subgroup.parameter}: ${value}}`;
-				});
-			});
-		}
-
-		if (params.requestsalt) {
-			appendText += '; requested creation protection ([[WP:SALT|salting]])';
-		}
-		if (extraInfo) {
-			appendText += '; additional information:' + extraInfo;
-		}
-		if (params.initialContrib) {
-			appendText += '; notified {{user|1=' + params.initialContrib + '}}';
-		}
-		appendText += ' ~~~~~\n';
-
-		usl.changeTags = Twinkle.changeTags;
-		return usl.log(appendText, editsummary);
-	}
-
-	/**
-	 * If validation fails, returns a string to be shown to user via alert(), if validation
-	 * succeeds, doesn't return anything.
-	 */
-	validateInputs(): string | void {}
-
-	userPreferences() {
-		return {
-			title: 'CSD',
-			preferences: [] as Preference[],
-		};
 	}
 }
