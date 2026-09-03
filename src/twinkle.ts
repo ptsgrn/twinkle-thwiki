@@ -14,6 +14,7 @@ import { Block } from './block';
 import { BatchDelete } from './batchdelete';
 import { Unlink } from './unlink';
 import { Protect } from './protect';
+import { CSD } from './speedy';
 
 // Check if account is experienced enough to use Twinkle
 if (!Morebits.userIsInGroup('autoconfirmed') && !Morebits.userIsInGroup('confirmed')) {
@@ -22,16 +23,16 @@ if (!Morebits.userIsInGroup('autoconfirmed') && !Morebits.userIsInGroup('confirm
 
 Twinkle.userAgent = `Twinkle (${mw.config.get('wgWikiID')})`;
 
-Twinkle.summaryAd = ' ([[WP:TW|TW]])';
+Twinkle.summaryAd = '';
 
-Twinkle.changeTags = '';
+Twinkle.changeTags = 'twinkle';
 
 Twinkle.messageOverrides = messages;
 
 Twinkle.extraMwMessages = mwMessageList;
 
 // List of module classes enabled
-Twinkle.registeredModules = [Block, Fluff, Diff, BatchDelete, Unlink, Protect];
+Twinkle.registeredModules = [Block, Fluff, Diff, BatchDelete, Unlink, Protect, CSD];
 
 /**
  * Adjust the following configurations if necessary
