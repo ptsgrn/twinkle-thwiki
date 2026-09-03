@@ -6,10 +6,14 @@ export class Protect extends ProtectCore {
 		'แม่แบบป้องกันหน้า': 'Template:Protection templates',
 		'นโยบายการป้องกัน': 'WP:PROT',
 		'วิธีใช้ Twinkle': 'WP:TW/DOC#protect',
-		'แสดงความคิดเห็น': 'WT:TW',
+		'ข้อเสนอแนะ': 'WT:TW',
 	};
 
-	portletTooltip = Morebits.userIsSysop ? 'ป้องกันหน้า' : 'ส่งคำขอป้องกันหน้า';
+	beforeAddMenu() {
+		this.portletName = 'เพิ่มการป้องกันหน้า';
+		this.portletTooltip = Morebits.userIsSysop ? 'ป้องกันหน้า' : 'ส่งคำขอป้องกันหน้า';
+	}
+
 	windowTitle = Morebits.userIsSysop
 		? 'ใช้ ส่งคำขอ หรือใส่ป้ายป้องกันหน้า'
 		: 'ส่งคำขอหรือใส่ป้ายหน้าถูกป้องกัน';
