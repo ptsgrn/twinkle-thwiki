@@ -9,8 +9,6 @@ export class Block extends BlockCore {
 		'ให้ข้อเสนอแนะ': 'WT:TW',
 	};
 
-	portletId = 'twinkle-block';
-
 	beforeAddMenu() {
 		this.portletName = 'บล็อกผู้ใช้';
 		this.portletTooltip = 'บล็อกผู้ใช้ที่เกี่ยวกับหน้านี้';
@@ -648,16 +646,16 @@ export class Block extends BlockCore {
 			// Building the template, however, takes a fair bit of logic
 			if (params.partial) {
 				if (params.pagerestrictions.length || params.namespacerestrictions.length) {
-					text += '|area=' + (params.indefinite ? 'certain ' : 'from certain ');
+					text += '|area=' + 'จากบาง';
 					if (params.pagerestrictions.length) {
 						text +=
-							'pages (' +
+							'หน้า (' +
 							mw.language.listToText(
 								params.pagerestrictions.map((p) => {
 									return '[[:' + p + ']]';
 								}),
 							);
-						text += params.namespacerestrictions.length ? ') and certain ' : ')';
+						text += params.namespacerestrictions.length ? ') และบาง' : ')';
 					}
 					if (params.namespacerestrictions.length) {
 						// 1 => Talk, 2 => User, etc.
@@ -665,7 +663,7 @@ export class Block extends BlockCore {
 							return this.menuFormattedNamespaces[id];
 						});
 						text +=
-							'[[Wikipedia:Namespace|namespaces]] (' + mw.language.listToText(namespaceNames) + ')';
+							'[[วิกิพีเดีย:เนมสเปซ|เนมสเปซ]] (' + mw.language.listToText(namespaceNames) + ')';
 					}
 				} else if (params.area) {
 					text += '|area=' + params.area;
