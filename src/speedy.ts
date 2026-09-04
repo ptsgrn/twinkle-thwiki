@@ -743,7 +743,7 @@ export class CSD extends SpeedyCore {
 
 		let form = new Morebits.quickForm(
 			(e) => this.evaluate(e),
-			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null,
+			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : undefined,
 		);
 		this.form = form;
 
@@ -831,7 +831,7 @@ export class CSD extends SpeedyCore {
 						name: 'delmultiple',
 						tooltip: 'เลือกตัวเลือกนี้เพื่อเลือกหลายเหตุผลพร้อมกัน',
 						event: (event) => {
-							this.modeChanged(event.target.form);
+							this.modeChanged(event.target.form!);
 							event.stopPropagation();
 						},
 					},
@@ -889,7 +889,7 @@ export class CSD extends SpeedyCore {
 					tooltip:
 						'เมื่อเลือก คุณสามารถเลือกหลายเกณฑ์ที่ใช้กับหน้านี้ได้ เช่น ท8 และ บ5 สำหรับองค์กรที่ขาดความสำคัญและเขียนเหมือนโฆษณา',
 					event: (event) => {
-						this.modeChanged(event.target.form);
+						this.modeChanged(event.target.form!);
 						event.stopPropagation();
 					},
 				},
@@ -1075,7 +1075,7 @@ export class CSD extends SpeedyCore {
 			) === -1
 		) {
 			// Attempt to place on talk page
-			let talkName = new mw.Title(pageobj.getPageName()).getTalkPage().toText();
+			let talkName = new mw.Title(pageobj.getPageName()).getTalkPage()?.toText();
 
 			if (talkName === pageobj.getPageName()) {
 				pageobj
