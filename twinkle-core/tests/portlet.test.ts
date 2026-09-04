@@ -16,6 +16,8 @@ jest.mock('../src/Config', () => ({
 }));
 
 test('addPortletLink', () => {
+	mw.config.set('skin', 'vector');
+
 	let pTwinkle = document.createElement('nav');
 	pTwinkle.setAttribute('id', 'p-twinkle');
 	document.body.appendChild(pTwinkle);
