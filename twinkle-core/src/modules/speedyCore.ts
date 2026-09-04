@@ -77,7 +77,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 
 		let form = new Morebits.quickForm(
 			(e) => this.evaluate(e),
-			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null
+			getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null,
 		);
 		this.form = form;
 
@@ -693,7 +693,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 				!confirm(
 					'The page already has the CSD-related template {{' +
 						tag[1] +
-						'}} on it.  Do you want to add another CSD template?'
+						'}} on it.  Do you want to add another CSD template?',
 				)
 			) {
 				return $.Deferred().reject();
@@ -702,14 +702,14 @@ export abstract class SpeedyCore extends TwinkleModule {
 			// check for existing XFD tags
 			let xfd =
 				/\{\{((?:article for deletion|proposed deletion|prod blp|template for discussion)\/dated|[cfm]fd\b)/i.exec(
-					text
+					text,
 				) || /#invoke:(RfD)/.exec(text);
 			if (
 				xfd &&
 				!confirm(
 					'The deletion-related template {{' +
 						xfd[1] +
-						'}} was found on the page. Do you still want to add a CSD template?'
+						'}} was found on the page. Do you still want to add a CSD template?',
 				)
 			) {
 				return $.Deferred().reject();
@@ -724,10 +724,8 @@ export abstract class SpeedyCore extends TwinkleModule {
 		let text = pageobj.getPageText();
 		let code = this.getTaggingCode();
 
-		// Set the correct value for |ts= parameter in {{db-g13}}
-		if (params.normalizeds.indexOf('g13') !== -1) {
-			code = code.replace('$TIMESTAMP', pageobj.getLastEditTime());
-		}
+		// Replace timestamp placeholders used by stale-page criteria such as G13 and Thai ท10.
+		code = code.replace(/\$TIMESTAMP/g, pageobj.getLastEditTime());
 		if (params.requestsalt) {
 			code = '{{salt}}\n' + code;
 		}
@@ -750,7 +748,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 			let talk_page = new Page(talkName, 'Automatically placing tag on talk page');
 			talk_page.setNewSectionTitle(pageobj.getPageName() + ' nominated for CSD, request deletion');
 			talk_page.setNewSectionText(
-				code + '\n\nI was unable to tag ' + pageobj.getPageName() + ' so please delete it. ~~~~'
+				code + '\n\nI was unable to tag ' + pageobj.getPageName() + ' so please delete it. ~~~~',
 			);
 			talk_page.setCreateOption('recreate');
 			talk_page.setFollowRedirect(true);
@@ -765,7 +763,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 			// remove "move to Commons" tag - deletion-tagged files cannot be moved to Commons
 			text = text.replace(
 				/\{\{(mtc|(copy |move )?to ?commons|move to wikimedia commons|copy to wikimedia commons)[^}]*\}\}/gi,
-				''
+				'',
 			);
 		}
 
@@ -842,7 +840,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 		} else if (initialContrib === mw.config.get('wgTitle') && mw.config.get('wgNamespaceNumber') === 3) {
 			Morebits.status.warn(
 				'Note',
-				'Notifying initial contributor: this user created their own user talk page; skipping notification'
+				'Notifying initial contributor: this user created their own user talk page; skipping notification',
 			);
 			initialContrib = null;
 
@@ -850,7 +848,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 		} else if ((initialContrib === 'Cyberbot I' || initialContrib === 'SoxBot') && params.normalizeds[0] === 'f2') {
 			Morebits.status.warn(
 				'Note',
-				'Notifying initial contributor: page created procedurally by bot; skipping notification'
+				'Notifying initial contributor: page created procedurally by bot; skipping notification',
 			);
 			initialContrib = null;
 
@@ -859,7 +857,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 			this.hasCSD &&
 			params.warnUser &&
 			!confirm(
-				'The page is has a deletion-related tag, and thus the creator has likely been notified.  Do you want to notify them for this deletion as well?'
+				'The page is has a deletion-related tag, and thus the creator has likely been notified.  Do you want to notify them for this deletion as well?',
 			)
 		) {
 			Morebits.status.info('Notifying initial contributor', 'canceled by user; skipping notification.');
@@ -873,7 +871,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 
 		let usertalkpage = new Page(
 			'User talk:' + initialContrib,
-			'Notifying initial contributor (' + initialContrib + ')'
+			'Notifying initial contributor (' + initialContrib + ')',
 		);
 
 		let editsummary = 'Notification: speedy deletion' + (params.warnUser ? '' : ' nomination');
@@ -908,7 +906,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 		return api.post().then((apiobj) => {
 			let reason = decodeURIComponent($(apiobj.getResponse().parse.text).find('#delete-reason').text()).replace(
 				/\+/g,
-				' '
+				' ',
 			);
 			if (!reason) {
 				statusIndicator.warn('Unable to generate summary from deletion template');
@@ -924,7 +922,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 		if (!params.normalizeds.length && params.normalizeds[0] === 'db') {
 			params.deleteReason = prompt(
 				'Enter the deletion summary to use, which will be entered into the deletion log:',
-				''
+				'',
 			);
 			return $.Deferred().resolve();
 		} else {
@@ -933,7 +931,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 				if (params.promptForSummary) {
 					reason = prompt(
 						'Enter the deletion summary to use, or press OK to accept the automatically generated one.',
-						reason
+						reason,
 					);
 				}
 				params.deleteReason = reason;
@@ -952,7 +950,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 		} else if (!params.deleteReason || !params.deleteReason.trim()) {
 			Morebits.status.error(
 				'Asking for reason',
-				"you didn't give one.  I don't know... what with admins and their apathetic antics... I give up..."
+				"you didn't give one.  I don't know... what with admins and their apathetic antics... I give up...",
 			);
 			return $.Deferred().reject();
 		}
@@ -1045,7 +1043,7 @@ export abstract class SpeedyCore extends TwinkleModule {
 				Twinkle.unlink.makeWindow(
 					isFile
 						? 'Removing usages of and/or links to deleted file ' + Morebits.pageNameNorm
-						: 'Removing links to deleted page ' + Morebits.pageNameNorm
+						: 'Removing links to deleted page ' + Morebits.pageNameNorm,
 				);
 			},
 		});
